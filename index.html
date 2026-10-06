@@ -1,0 +1,3649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Samurai Tea Master - 侍の茶屋と私邸</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0f1311;
+      font-family: 'Segoe UI', 'Noto Serif JP', -apple-system, BlinkMacSystemFont, Roboto, serif;
+      color: #f5f2ea;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* Atmospheric Vignette */
+    .vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      box-shadow: inset 0 0 120px rgba(8, 10, 8, 0.55);
+    }
+
+    /* Top HUD */
+    #hud-top {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      right: 20px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .hud-card {
+      background: rgba(18, 22, 19, 0.88);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 12px;
+      padding: 10px 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .title-banner {
+      display: flex;
+      flex-direction: column;
+    }
+    .title-banner h1 {
+      font-size: 19px;
+      letter-spacing: 2px;
+      color: #ede2cd;
+      text-transform: uppercase;
+      font-weight: 700;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+    }
+    .title-banner span {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #97a89a;
+    }
+    .stat-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .mon-val { color: #f5c542; }
+    .zen-val { color: #72cca6; }
+
+    .zone-indicator {
+      background: rgba(30, 38, 33, 0.9);
+      border: 1px solid rgba(212, 175, 55, 0.25);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: #e5dac5;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-hud {
+      background: rgba(26, 33, 29, 0.88);
+      color: #e8d8b8;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 8px;
+      padding: 8px 13px;
+      font-size: 12px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+    }
+    .btn-hud:hover {
+      background: rgba(45, 58, 49, 0.95);
+      border-color: #d4af37;
+      transform: translateY(-1px);
+    }
+    .btn-hud.active {
+      background: #8b3a2b;
+      border-color: #f5846b;
+      color: #fff;
+    }
+
+    /* Bottom Hotbar */
+    #hotbar-container {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    #prompt-interaction {
+      background: rgba(14, 18, 16, 0.92);
+      border: 1px solid #d4af37;
+      border-radius: 20px;
+      padding: 6px 18px;
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: #f7e7c4;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.6);
+      display: none;
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.04); opacity: 1; border-color: #ffdf79; }
+    }
+    #hotbar {
+      display: flex;
+      gap: 8px;
+      background: rgba(16, 20, 18, 0.9);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      padding: 6px 10px;
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+    .hotbar-slot {
+      width: 52px;
+      height: 52px;
+      background: rgba(28, 35, 30, 0.7);
+      border: 1px solid rgba(160, 160, 160, 0.2);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.15s ease;
+    }
+    .hotbar-slot .key-num {
+      position: absolute;
+      top: 3px;
+      left: 6px;
+      font-size: 10px;
+      color: #9da89e;
+      font-weight: 700;
+    }
+    .hotbar-slot .icon {
+      font-size: 22px;
+    }
+    .hotbar-slot .count {
+      position: absolute;
+      bottom: 2px;
+      right: 5px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #f5c542;
+    }
+    .hotbar-slot:hover {
+      background: rgba(45, 56, 48, 0.9);
+      border-color: rgba(212, 175, 55, 0.6);
+    }
+    .hotbar-slot.selected {
+      border: 2px solid #d4af37;
+      background: rgba(55, 70, 60, 0.95);
+      box-shadow: 0 0 14px rgba(212, 175, 55, 0.45);
+      transform: translateY(-3px);
+    }
+
+    /* Notification Toasts */
+    #toast-container {
+      position: absolute;
+      top: 85px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .toast {
+      background: rgba(18, 24, 20, 0.95);
+      border-left: 4px solid #d4af37;
+      border-radius: 6px;
+      padding: 9px 16px;
+      color: #f3efe6;
+      font-size: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transform: translateX(100%);
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .toast.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.68);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-box {
+      background: #19201b;
+      border: 2px solid #c9a44c;
+      border-radius: 16px;
+      padding: 24px 28px;
+      width: 590px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 45px rgba(0,0,0,0.85);
+      position: relative;
+    }
+    .modal-box h2 {
+      color: #ebdcb9;
+      font-size: 21px;
+      letter-spacing: 2px;
+      border-bottom: 1px solid rgba(212,175,55,0.3);
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .btn-close {
+      background: transparent;
+      border: none;
+      color: #9cb0a0;
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .btn-close:hover { color: #f5846b; }
+
+    /* Tea Brewing Interface */
+    .tea-brew-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .tea-card {
+      background: rgba(26, 34, 29, 0.8);
+      border: 1px solid rgba(212, 175, 55, 0.25);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tea-card:hover {
+      border-color: #d4af37;
+      background: rgba(38, 48, 41, 0.9);
+      transform: translateY(-2px);
+    }
+    .tea-card.selected {
+      border: 2px solid #55be8c;
+      background: rgba(30, 56, 42, 0.95);
+    }
+    .tea-card h4 {
+      color: #f7e7c4;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tea-card p {
+      font-size: 11px;
+      color: #9bb0a0;
+      line-height: 1.4;
+    }
+    .tea-req {
+      font-size: 11px;
+      color: #f5c542;
+    }
+
+    /* Whisking / Brewing minigame */
+    .brew-minigame {
+      background: rgba(13, 17, 14, 0.9);
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid rgba(212,175,55,0.25);
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .whisk-bar-container {
+      width: 100%;
+      height: 22px;
+      background: #0d120f;
+      border-radius: 11px;
+      border: 1px solid #3c4940;
+      position: relative;
+      overflow: hidden;
+    }
+    .whisk-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #429261, #7ae099);
+      border-radius: 11px;
+      transition: width 0.1s linear;
+    }
+    .btn-whisk {
+      background: linear-gradient(135deg, #2b6140, #397a52);
+      color: #fff;
+      border: 1px solid #55a876;
+      border-radius: 8px;
+      padding: 9px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn-whisk:hover { filter: brightness(1.15); }
+    .btn-whisk:active { transform: scale(0.98); }
+
+    /* Decoration Mode Toolbar */
+    #decor-toolbar {
+      position: absolute;
+      top: 85px;
+      left: 20px;
+      background: rgba(16, 21, 18, 0.94);
+      border: 1px solid #d4af37;
+      border-radius: 14px;
+      padding: 14px;
+      z-index: 10;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      width: 270px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+    }
+    #decor-toolbar h3 {
+      font-size: 13px;
+      color: #e8d8b8;
+      border-bottom: 1px solid rgba(212,175,55,0.3);
+      padding-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .decor-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 290px;
+      overflow-y: auto;
+    }
+    .decor-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: rgba(28, 36, 31, 0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s ease;
+    }
+    .decor-item:hover {
+      background: rgba(45, 58, 50, 0.9);
+      border-color: #d4af37;
+    }
+    .decor-item.active {
+      border: 1px solid #63c996;
+      background: rgba(30, 60, 44, 0.9);
+    }
+    .decor-controls-hint {
+      font-size: 11px;
+      color: #9cb1a3;
+      line-height: 1.5;
+      background: rgba(10,14,12,0.6);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px dashed rgba(212,175,55,0.25);
+    }
+
+    /* Customer Speech Bubbles */
+    .speech-bubble {
+      position: absolute;
+      background: rgba(248, 245, 237, 0.96);
+      color: #171c19;
+      border: 2px solid #8b3a2b;
+      border-radius: 12px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 15;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      transform: translate(-50%, -100%);
+      transition: opacity 0.2s ease;
+    }
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 7px 0;
+      border-style: solid;
+      border-color: #8b3a2b transparent transparent;
+      display: block;
+      width: 0;
+    }
+
+    /* Start / Audio Prompt */
+    #start-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #1b231e 0%, #0a0d0b 100%);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+    #start-overlay h1 {
+      font-size: 40px;
+      letter-spacing: 6px;
+      color: #ede2cd;
+      margin-bottom: 6px;
+      text-shadow: 0 4px 14px rgba(0,0,0,0.85);
+    }
+    #start-overlay h3 {
+      font-size: 15px;
+      letter-spacing: 8px;
+      color: #8fa697;
+      margin-bottom: 24px;
+      font-weight: 400;
+    }
+    .btn-start {
+      background: linear-gradient(135deg, #963f2e, #75291b);
+      color: #f7ede2;
+      border: 2px solid #d4af37;
+      border-radius: 30px;
+      padding: 13px 44px;
+      font-size: 17px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(184, 57, 36, 0.45);
+      transition: all 0.25s ease;
+      font-weight: 700;
+    }
+    .btn-start:hover {
+      transform: scale(1.05);
+      box-shadow: 0 12px 35px rgba(212, 175, 55, 0.6);
+      background: linear-gradient(135deg, #a84835, #883323);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.4); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(212,175,55,0.7); }
+/* Paper, indigo and warm brass keep the interface part of the garden. */
+body,html {font-family: 'Trebuchet MS', sans-serif;color:#f5efde;}
+.vignette {box-shadow:inset 0 0 130px rgba(52,51,29,.16);background:linear-gradient(180deg,rgba(246,230,200,.05),transparent 30%,rgba(56,65,39,.06));}
+#hud-top {top:24px;left:28px;right:28px;align-items:flex-start;gap:18px;}
+.hud-card {background:rgba(247,240,219,.92);color:#485447;border:1px solid rgba(255,250,230,.7);border-radius:5px 18px 18px 18px;padding:14px 18px;box-shadow:0 5px 25px #33462c16;gap:20px;flex-wrap:wrap;max-width:670px;}
+.title-banner h1 {color:#354d46;font-family:Georgia,serif;font-weight:400;font-size:23px;text-transform:none;letter-spacing:-.5px;text-shadow:none;}
+.title-banner span {font-size:8px;letter-spacing:1.8px;color:#9c8f72;margin-top:5px;}
+.zone-indicator {position:absolute;top:84px;left:0;background:#f8efdde6;color:#6e7559;border:0;border-radius:5px;padding:8px 13px;letter-spacing:.6px;font-size:10px;box-shadow:0 3px 14px #344c2f0a;}
+.stat-badge {font-size:12px;gap:5px;} .mon-val {color:#a77a38;} .zen-val {color:#708665;}
+.hud-card .stat-badge:last-child {color:#778265!important;font-size:10px;}
+.top-actions {gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:510px;}
+.btn-hud {background:#f7efdded;color:#58624f;border:1px solid #fff3;border-radius:7px;padding:11px 12px;font-size:10px;letter-spacing:.2px;box-shadow:0 3px 15px #344c2f0c;}
+.btn-hud:hover {background:#fff6df;border-color:#cab891;transform:translateY(-2px);}
+.btn-hud.active {background:#526a5b;color:#fff5df;border-color:#7e9273;}
+#hotbar-container {bottom:26px;gap:12px;}
+#hotbar {background:#f7eedeea;border:1px solid #fffae3b3;box-shadow:0 6px 26px #394c3320;border-radius:16px;padding:8px 10px;gap:9px;}
+.hotbar-slot {background:#dedcc357;border:1px solid #8e9a7324;border-radius:10px;width:58px;height:58px;transition:transform .15s,border-color .15s;}
+.hotbar-slot:hover {background:#ece6cb;transform:translateY(-3px);}
+.hotbar-slot.selected {background:#dae0c2;border:1.5px solid #859770;box-shadow:0 0 0 3px #bcc9a333;transform:translateY(-4px);}
+.hotbar-slot .key-num {color:#83906b;font-size:9px;} .hotbar-slot .count {color:#657650;}
+.hotbar-slot .icon {font-size:24px;filter:saturate(.68);}
+#prompt-interaction {background:#f8efdcf5;border:1px solid #c6ba97;color:#55664d;border-radius:20px;padding:10px 19px;font-size:12px;box-shadow:0 3px 20px #3b4c3215;}
+.walk-hint {position:absolute;bottom:30px;left:29px;z-index:8;color:#eff1d9;font-size:10px;letter-spacing:.4px;text-shadow:0 1px 8px #3a4b31;pointer-events:none;}
+.walk-hint span {opacity:.7;letter-spacing:0;}
+.garden-note {position:absolute;right:31px;bottom:34px;display:flex;align-items:center;gap:12px;z-index:8;color:#f6f0d8;text-shadow:0 2px 10px #334d2c30;pointer-events:none;}
+.garden-note>span {font-size:25px;border:1px solid #f3ebcc66;padding:5px 8px;border-radius:3px;color:#f7dfbc;}
+.garden-note div {font-size:9px;letter-spacing:2px;} .garden-note small {display:block;font-family:Georgia,serif;font-size:12px;letter-spacing:0;margin-top:5px;opacity:.8;font-style:italic;}
+#start-overlay {align-items:flex-start;text-align:left;padding:7vw;background:linear-gradient(90deg,rgba(33,53,43,.85) 0%,rgba(43,60,47,.7) 28%,rgba(42,58,43,.12) 68%,transparent);}
+.start-kicker {color:#d9c59d;font-size:10px;letter-spacing:3px;margin-bottom:22px;}
+#start-overlay h1 {font-family:Georgia,serif;font-size:clamp(50px,6.2vw,91px);line-height:.99;font-weight:400;letter-spacing:-3px;margin-left:-4px;margin-bottom:24px;color:#fff0d4;text-shadow:0 4px 30px #18352520;}
+#start-overlay h1 em {font-weight:400;color:#e1c79f;font-size:.88em;}
+#start-overlay h3 {color:#e4d9b9;letter-spacing:2.5px;font-size:10px;margin-bottom:26px;}
+#start-overlay p {color:#e1ddc6!important;line-height:1.9!important;font-size:12px!important;}
+.btn-start {font-family:'Trebuchet MS',sans-serif;background:#e6d6af;border:1px solid #f7e8c7;color:#465643;border-radius:4px 15px 15px 15px;box-shadow:0 4px 20px #1b30281c;font-size:12px;letter-spacing:.6px;padding:17px 24px;font-weight:400;}
+.btn-start span {margin-left:35px;font-size:17px;}
+.btn-start:hover {background:#f3e2be;box-shadow:0 5px 28px #f4d5a325;transform:translateY(-3px);}
+body:not(.playing) #hud-top,body:not(.playing) #hotbar-container,body:not(.playing) .walk-hint,body:not(.playing) .garden-note {visibility:hidden;}
+.modal-box {border-color:#a89772;border-radius:16px;background:#354b40f5;box-shadow:0 18px 60px #233b3040;}
+.modal-box h2 {font-family:Georgia,serif;font-weight:400;color:#eee1c3;}
+#decor-toolbar {background:#344b40f5;border-color:#baa982;box-shadow:0 12px 34px #1a352328;top:128px;}
+.speech-bubble {font-size:10px;border:1px solid #d6c7a6;color:#5a674f;box-shadow:0 4px 16px #324c2519;font-weight:400;}
+.speech-bubble::after {border-color:#d6c7a6 transparent transparent;}
+@media(max-width:1050px) {.hud-card{gap:12px;max-width:450px}.title-banner h1{font-size:20px}.title-banner span{font-size:7px}.top-actions{max-width:330px}.walk-hint{bottom:120px;left:20px}.garden-note{display:none}.hud-card .stat-badge:last-child{display:none}}
+@media(max-width:650px) {#hud-top{top:13px;left:14px;right:14px;gap:7px}.hud-card{padding:10px 12px;gap:9px;max-width:230px}.title-banner{width:100%}.title-banner h1{font-size:19px}.top-actions{max-width:150px;gap:5px}.btn-hud{padding:8px;font-size:9px}.zone-indicator{top:100px;max-width:210px;font-size:9px}.walk-hint{bottom:112px;font-size:8px}#hotbar-container{bottom:22px}.hotbar-slot{width:50px;height:52px}.start-kicker{font-size:8px;letter-spacing:2px}#start-overlay{padding:8vw;background:linear-gradient(90deg,#233d33de,#3146389c,transparent)}#start-overlay h1{font-size:64px}#start-overlay p{font-size:11px!important}#start-overlay h3{font-size:8px;letter-spacing:1.6px}#decor-toolbar{top:128px;max-height:60vh}.modal-box{width:92vw;max-height:83vh;overflow-y:auto}}
+
+  .toast {background:#f8efddf5!important;color:#5e6d50!important;border-color:#b5b78b!important;box-shadow:0 4px 18px #344c2f18!important;font-size:11px!important;}
+  </style>
+  <script src="vendor/three.min.js"></script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div class="vignette"></div>
+
+  <!-- Start Overlay -->
+  <div id="start-overlay">
+    <div class="start-kicker">A SMALL LIFE, BEAUTIFULLY LIVED</div><h1>Samurai<br><em>Tea Master</em></h1>
+    <h3>侍の茶屋 &nbsp; / &nbsp; A GARDEN OF YOUR OWN</h3>
+    <p style="max-width: 540px; line-height: 1.6; color: #a4b8a7; margin-bottom: 28px; font-size: 14px;">
+      A warm kettle. A little garden. A slower kind of adventure.<br>Grow your tea, welcome a wanderer, and find a quiet<br>moment beneath the cherry blossoms.
+    </p>
+    <button class="btn-start" id="btn-enter-game">Make yourself at home <span aria-hidden="true">→</span></button>
+  </div>
+
+  <div class="garden-note"><span>花</span> <div>THE SLOW SEASON<small>Make room for a little quiet.</small></div></div>
+  <div class="walk-hint">W A S D <span>wander</span> &nbsp; · &nbsp; Drag <span>look around</span> &nbsp; · &nbsp; Scroll <span>zoom</span></div>
+  <!-- Top HUD -->
+  <div id="hud-top">
+    <div class="hud-card">
+      <div class="title-banner">
+        <h1>Samurai Tea Master</h1>
+        <span>SPRING · YOUR LITTLE SANCTUARY</span>
+      </div>
+      <div class="zone-indicator" id="hud-zone">Front Courtyard</div>
+      <div class="stat-badge">
+        <span class="icon">🪙</span>
+        <span class="mon-val" id="hud-mon">60 Mon</span>
+      </div>
+      <div class="stat-badge">
+        <span class="icon">🌸</span>
+        <span class="zen-val" id="hud-zen">15 Zen</span>
+      </div>
+      <div class="stat-badge" style="color: #9cb1a3;">
+        <span class="icon">⏳</span>
+        <span id="hud-tod">Afternoon</span>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn-hud" id="btn-scenic" title="View the whole estate [V]">⌘ <span>Estate view [V]</span></button>
+      <button class="btn-hud" id="btn-toggle-decor">
+        <span>🎋</span> Decorate [B]
+      </button>
+      <button class="btn-hud" id="btn-toggle-shop">
+        <span>🏪</span> Merchant
+      </button>
+      <button class="btn-hud" id="btn-toggle-kata">
+        <span>⚔️</span> Kata [F]
+      </button>
+      <button class="btn-hud" id="btn-toggle-help">
+        <span>📜</span> Guide
+      </button>
+      <button class="btn-hud" id="btn-toggle-audio">
+        <span id="audio-icon">🔊</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Decoration Sidebar -->
+  <div id="decor-toolbar">
+    <h3>
+      <span>GARDEN & ESTATE DECOR</span>
+      <span style="cursor:pointer; color:#f5846b;" id="btn-close-decor">✕</span>
+    </h3>
+    <div class="decor-list" id="decor-items-list"></div>
+    <div class="decor-controls-hint">
+      <strong>Controls:</strong><br>
+      • [Left Click / E] Place item<br>
+      • [R] Rotate 45°<br>
+      • [X] Store nearby decoration<br>
+      • [B] Exit Decorate Mode
+    </div>
+  </div>
+
+  <!-- Bottom Interaction Prompt & Hotbar -->
+  <div id="hotbar-container">
+    <div id="prompt-interaction">Press [E] to Interact</div>
+    <div id="hotbar">
+      <div class="hotbar-slot selected" data-slot="1">
+        <span class="key-num">1</span>
+        <span class="icon">💧</span>
+        <span class="count" id="count-water">∞</span>
+      </div>
+      <div class="hotbar-slot" data-slot="2">
+        <span class="key-num">2</span>
+        <span class="icon">🌱</span>
+        <span class="count" id="count-matcha-seed">5</span>
+      </div>
+      <div class="hotbar-slot" data-slot="3">
+        <span class="key-num">3</span>
+        <span class="icon">🌿</span>
+        <span class="count" id="count-sencha-seed">4</span>
+      </div>
+      <div class="hotbar-slot" data-slot="4">
+        <span class="key-num">4</span>
+        <span class="icon">🍃</span>
+        <span class="count" id="count-leaves">2</span>
+      </div>
+      <div class="hotbar-slot" data-slot="5">
+        <span class="key-num">5</span>
+        <span class="icon">🍵</span>
+        <span class="count" id="count-prepared-tea">1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Speech bubble floating container -->
+  <div id="bubble-container" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:12;"></div>
+
+  <!-- Notification Toasts -->
+  <div id="toast-container"></div>
+
+  <!-- MODAL: Tea Brewing Station -->
+  <div class="modal-overlay" id="modal-brew">
+    <div class="modal-box">
+      <h2>
+        <span>🍵 CHAYA TEA HEARTH (茶筅点前)</span>
+        <button class="btn-close" id="close-brew-modal">✕</button>
+      </h2>
+      <p style="font-size: 13px; color: #a8b8ac; margin-bottom: 14px;">
+        Heat hot mountain spring water in the cast-iron tetsubin kettle and whisk finely ground leaves.
+      </p>
+
+      <div class="tea-brew-grid">
+        <div class="tea-card selected" data-tea="matcha">
+          <h4>Matcha Ceremony <span>濃茶</span></h4>
+          <p>Finely stone-ground jade tea leaves. Rich umami and thick velvety emerald froth.</p>
+          <div class="tea-req">Requires: 1x Harvested Leaf</div>
+        </div>
+        <div class="tea-card" data-tea="sencha">
+          <h4>Steeped Sencha <span>煎茶</span></h4>
+          <p>Whole young tea shoots steeped gently. Rejuvenating, crisp, and pure.</p>
+          <div class="tea-req">Requires: 1x Harvested Leaf</div>
+        </div>
+        <div class="tea-card" data-tea="genmaicha">
+          <h4>Roasted Genmaicha <span>玄米茶</span></h4>
+          <p>Green tea leaves blended with fragrant roasted puffed brown rice.</p>
+          <div class="tea-req">Requires: 1x Harvested Leaf + 5 Mon</div>
+        </div>
+        <div class="tea-card" data-tea="sakuramint">
+          <h4>Sakura Floral Tea <span>桜茶</span></h4>
+          <p>Infused with salted cherry blossoms gathered from your backyard trees.</p>
+          <div class="tea-req">Requires: 1x Harvested Leaf + 8 Mon</div>
+        </div>
+      </div>
+
+      <div class="brew-minigame">
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#e0d2bd;">
+          <span>Bamboo Chasen Whisking:</span>
+          <span id="whisk-status">Froth: 0%</span>
+        </div>
+        <div class="whisk-bar-container">
+          <div class="whisk-bar-fill" id="whisk-fill"></div>
+        </div>
+        <button class="btn-whisk" id="btn-whisk-action">WHISK BAMBOO CHASEN (CLICK RAPIDLY)</button>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn-hud" id="btn-cancel-brew">Cancel</button>
+        <button class="btn-hud active" id="btn-finish-brew">Finish Bowl of Tea 🍵</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Merchant Stall -->
+  <div class="modal-overlay" id="modal-shop">
+    <div class="modal-box">
+      <h2>
+        <span>🏪 EDO TRAVELING MERCHANT (商人)</span>
+        <button class="btn-close" id="close-shop-modal">✕</button>
+      </h2>
+      <p style="font-size: 13px; color: #a8b8ac; margin-bottom: 14px;">
+        Trade your earned Mon coins for rare tea cultivar seeds, authentic stone carvings, and estate fixtures.
+      </p>
+      <div id="shop-items-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Guide -->
+  <div class="modal-overlay" id="modal-help">
+    <div class="modal-box">
+      <h2>
+        <span>📜 ESTATE GUIDE & CONTROLS</span>
+        <button class="btn-close" id="close-help-modal">✕</button>
+      </h2>
+      <div style="font-size: 13px; line-height: 1.6; color: #c4d4c8; display:flex; flex-direction:column; gap:10px;">
+        <div><strong>Navigation:</strong> <span style="color:#d4af37;">W A S D</span> to walk, <span style="color:#d4af37;">Mouse Drag</span> to orbit camera, <span style="color:#d4af37;">Scroll</span> to zoom.</div>
+        <div><strong>The Three Zones:</strong><br>
+          1. <strong>Front Chaya (Tea House):</strong> Serve arriving wanderers and brew bowls at the iron hearth kettle.<br>
+          2. <strong>Samurai House (Omoya):</strong> Located directly behind the tea house through the wooden gate. Your private living quarters with sword display rack and tatami rooms.<br>
+          3. <strong>Backyard (Behind the House):</strong> Tilled soil plots to sow seeds [2, 3], water [1], and harvest tea leaves [4], plus an open courtyard to decorate [B].
+        </div>
+        <div><strong>Zen Kata:</strong> Press <span style="color:#d4af37;">F</span> to draw your katana in a graceful meditation kata for +5 Zen.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       1. GAME STATE & ECONOMY
+       ========================================================================== */
+    const STATE = {
+      mon: 60,
+      zen: 15,
+      timeOfDay: 0.58,
+      timeSpeed: 1 / 1200,
+      selectedSlot: 1,
+      currentZone: 'Front Courtyard',
+      inventory: {
+        water: 999,
+        matchaSeeds: 5,
+        senchaSeeds: 4,
+        teaLeaves: 2,
+        preparedTea: 1,
+        decorations: {
+          lantern: 2,
+          torii: 1,
+          bonsai: 2,
+          fountain: 1,
+          zen_rock: 3,
+          sakura_tree: 1,
+          tatami_bench: 2
+        }
+      },
+      currentTeaType: 'matcha',
+      frothLevel: 0,
+      isDecorMode: false,
+      selectedDecorKey: 'lantern',
+      decorRotation: 0,
+      audioEnabled: false,
+      kataPlaying: false
+    };
+
+    const DECOR_CATALOG = {
+      lantern: { name: 'Stone Toro Lantern', cost: 25, icon: '🏮', desc: 'Hand-carved granite lantern with warm night glow.' },
+      torii: { name: 'Vermilion Torii Gate', cost: 75, icon: '⛩️', desc: 'Sacred cedar archway for the garden path.' },
+      bonsai: { name: 'Pine Bonsai on Stand', cost: 35, icon: '🪴', desc: 'Centuries-old miniature evergreen pine.' },
+      fountain: { name: 'Bamboo Shishi-Odoshi', cost: 45, icon: '🎋', desc: 'Tipping bamboo water clapper fountain.' },
+      zen_rock: { name: 'Contemplation Boulder', cost: 15, icon: '🪨', desc: 'Natural weathered river rock.' },
+      sakura_tree: { name: 'Flowering Sakura Tree', cost: 60, icon: '🌸', desc: 'Cherry tree scattering pink petals.' },
+      tatami_bench: { name: 'Engawa Cedar Bench', cost: 30, icon: '🪵', desc: 'Polished cedar rest with tatami topper.' }
+    };
+
+    /* ==========================================================================
+       2. PROCEDURAL SOUND SYNTHESIZER (Web Audio API)
+       ========================================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.kotoScale = [261.63, 277.18, 349.23, 392.00, 466.16, 523.25, 554.37, 698.46, 783.99, 932.33];
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          STATE.audioEnabled = true;
+        } else if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+          STATE.audioEnabled = true;
+        }
+      }
+      toggle() {
+        if (!this.ctx) { this.init(); return true; }
+        if (STATE.audioEnabled) { this.ctx.suspend(); STATE.audioEnabled = false; }
+        else { this.ctx.resume(); STATE.audioEnabled = true; }
+        return STATE.audioEnabled;
+      }
+      playKoto(freq, delay = 0) {}
+      playFlute(freq) {}
+      playClack() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+      playWater() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const bufferSize = this.ctx.sampleRate * 0.3;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.08;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1100;
+        filter.Q.value = 3.5;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start();
+      }
+      playCoin() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        [1046.5, 1318.5, 1567.98].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.14, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.3);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.35);
+        });
+      }
+      playKatana() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2400, now);
+        osc.frequency.exponentialRampToValueAtTime(1400, now + 0.4);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+      startBGM() {}
+    }
+    const audio = new SoundEngine();
+
+    /* ==========================================================================
+       3. THREE.JS 3D SCENE & HIGH-RES CANVAS TEXTURES
+       ========================================================================== */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xdce5e0);
+    scene.fog = new THREE.FogExp2(0xdce5e0, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 260);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    container.appendChild(renderer.domElement);
+
+    // 1. High-Res Japanese Roof Tile Texture (Kawara)
+    function createRoofTileTexture() {
+      const cv = document.createElement('canvas');
+      cv.width = 512; cv.height = 512;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#262a2d';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Alternating cylindrical tile columns with highlight & deep shadow
+      const colWidth = 32;
+      for (let x = 0; x < 512; x += colWidth) {
+        const grad = ctx.createLinearGradient(x, 0, x + colWidth, 0);
+        grad.addColorStop(0, '#1c1f21');
+        grad.addColorStop(0.35, '#3b4247');
+        grad.addColorStop(0.7, '#24282a');
+        grad.addColorStop(1, '#111416');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, 0, colWidth, 512);
+
+        // Tile overlap horizontal lines
+        ctx.strokeStyle = '#141618';
+        ctx.lineWidth = 3;
+        for (let y = 0; y < 512; y += 48) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + colWidth, y);
+          ctx.stroke();
+        }
+      }
+      const tex = new THREE.CanvasTexture(cv);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3, 3);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      return tex;
+    }
+
+    // 2. High-Res Shoji Screen Lattice Texture
+    function createShojiTexture() {
+      const cv = document.createElement('canvas');
+      cv.width = 512; cv.height = 512;
+      const ctx = cv.getContext('2d');
+      // Warm translucent washi rice paper background
+      ctx.fillStyle = '#f8f4e8';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Paper fiber noise
+      ctx.fillStyle = 'rgba(215, 205, 185, 0.35)';
+      for (let i = 0; i < 3000; i++) {
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+      }
+
+      // Wooden Grid Lattice (Kumiko)
+      ctx.fillStyle = '#422817';
+      const cellW = 64;
+      const cellH = 96;
+      const beamThick = 6;
+      for (let x = 0; x <= 512; x += cellW) {
+        ctx.fillRect(x - beamThick/2, 0, beamThick, 512);
+      }
+      for (let y = 0; y <= 512; y += cellH) {
+        ctx.fillRect(0, y - beamThick/2, 512, beamThick);
+      }
+      const tex = new THREE.CanvasTexture(cv);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      return tex;
+    }
+
+    // 3. High-Res Tatami Texture with Dark Border
+    function createTatamiTexture() {
+      const cv = document.createElement('canvas');
+      cv.width = 512; cv.height = 512;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#b5b282';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Fine woven rush grass lines
+      ctx.strokeStyle = '#9c996d';
+      ctx.lineWidth = 1.2;
+      for (let y = 0; y < 512; y += 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(512, y);
+        ctx.stroke();
+      }
+
+      // Black silk fabric borders (Heri)
+      ctx.fillStyle = '#1d241c';
+      ctx.fillRect(0, 0, 24, 512);
+      ctx.fillRect(488, 0, 24, 512);
+
+      // Gold stitching detail on border
+      ctx.fillStyle = '#b0944f';
+      for (let y = 8; y < 512; y += 24) {
+        ctx.fillRect(10, y, 4, 10);
+        ctx.fillRect(498, y, 4, 10);
+      }
+
+      const tex = new THREE.CanvasTexture(cv);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      return tex;
+    }
+
+    // 4. Cedar Wood Texture
+    function createWoodTexture() {
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 256;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#4e331f';
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.fillStyle = '#3f2817';
+      for (let i = 0; i < 70; i++) {
+        ctx.fillRect(Math.random() * 256, 0, Math.random() * 8 + 2, 256);
+      }
+      const tex = new THREE.CanvasTexture(cv);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      return tex;
+    }
+
+    // 5. Rich Soil Texture
+    function createSoilTexture(isWet) {
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 256;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = isWet ? '#1a120c' : '#3d2a1c';
+      ctx.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 1500; i++) {
+        const c = isWet ? Math.floor(Math.random() * 25 + 20) : Math.floor(Math.random() * 40 + 50);
+        ctx.fillStyle = `rgb(${c+15}, ${c+5}, ${c})`;
+        ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(cv);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      return tex;
+    }
+
+    // Material Library
+    const matRoofTiles = new THREE.MeshStandardMaterial({ map: createRoofTileTexture(), roughness: 0.65, metalness: 0.1 });
+    const matShoji = new THREE.MeshStandardMaterial({ map: createShojiTexture(), roughness: 0.9, opacity: 0.95, transparent: true });
+    const matTatami = new THREE.MeshStandardMaterial({ map: createTatamiTexture(), roughness: 0.85 });
+    const matWood = new THREE.MeshStandardMaterial({ map: createWoodTexture(), roughness: 0.85 });
+    const matDarkWood = new THREE.MeshStandardMaterial({ color: 0x331f13, roughness: 0.85 });
+    const matGrass = new THREE.MeshStandardMaterial({ color: 0x476a44, roughness: 0.95 });
+    const matStone = new THREE.MeshStandardMaterial({ color: 0x767c79, roughness: 0.8 });
+    const matSoilDry = new THREE.MeshStandardMaterial({ map: createSoilTexture(false), roughness: 0.9 });
+    const matSoilWet = new THREE.MeshStandardMaterial({ map: createSoilTexture(true), roughness: 0.7 });
+    const matRedLacquer = new THREE.MeshStandardMaterial({ color: 0xa12e22, roughness: 0.4 });
+    const matGold = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.7, roughness: 0.25 });
+    const matBamboo = new THREE.MeshStandardMaterial({ color: 0x5a8642, roughness: 0.75 });
+
+    /* ==========================================================================
+       4. LIGHTING & ATMOSPHERE
+       ========================================================================== */
+    const ambientLight = new THREE.AmbientLight(0xfff6ea, 0.75);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffedd2, 1.25);
+    sunLight.position.set(30, 48, 22);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 130;
+    const shadowD = 29;
+    sunLight.shadow.camera.left = -shadowD;
+    sunLight.shadow.camera.right = shadowD;
+    sunLight.shadow.camera.top = shadowD;
+    sunLight.shadow.camera.bottom = -shadowD;
+    sunLight.shadow.bias = -0.0004;
+    scene.add(sunLight);
+
+    // Warm Irori Hearth Light in the Tea House
+    const hearthLight = new THREE.PointLight(0xff9438, 1.5, 9);
+    hearthLight.position.set(0, 1.0, 10.5);
+    hearthLight.castShadow = false;
+    scene.add(hearthLight);
+
+    // Ground Plane
+    const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), matGrass);
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.receiveShadow = true;
+    scene.add(groundMesh);
+
+    /* ==========================================================================
+       5. COMPOUND PERIMETER FENCES & DIVIDING GATES
+       ========================================================================== */
+    /* ==========================================================================
+       5. COMPOUND PERIMETER FENCES & DIVIDING GATES (HIGH-POLY)
+       ========================================================================== */
+    const compoundFences = new THREE.Group();
+
+    function createFenceSection(length, isBamboo = true) {
+      const g = new THREE.Group();
+      const postMat = matDarkWood;
+      const infillMat = isBamboo ? matBamboo : matWood;
+
+      // Smooth cylindrical cedar posts with rounded tops (32 segments)
+      for (let x = -length/2; x <= length/2; x += 2.0) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.3, 32), postMat);
+        post.position.set(x, 1.15, 0);
+        post.castShadow = true;
+        g.add(post);
+
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), postMat);
+        cap.position.set(x, 2.3, 0);
+        g.add(cap);
+      }
+      // Top and bottom crossbeams
+      const topRail = new THREE.Mesh(new THREE.BoxGeometry(length, 0.09, 0.09), postMat);
+      topRail.position.set(0, 1.95, 0);
+      g.add(topRail);
+
+      const botRail = new THREE.Mesh(new THREE.BoxGeometry(length, 0.09, 0.09), postMat);
+      botRail.position.set(0, 0.45, 0);
+      g.add(botRail);
+
+      // Smooth vertical bamboo slats (16 segments each)
+      for (let x = -length/2 + 0.1; x < length/2; x += 0.22) {
+        const slat = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 1.55, 16), infillMat);
+        slat.position.set(x, 1.2, 0);
+        slat.castShadow = true;
+        g.add(slat);
+      }
+      return g;
+    }
+
+    // Rear boundary fence
+    const rearFence = createFenceSection(40, true);
+    rearFence.position.set(0, 0, -22);
+    compoundFences.add(rearFence);
+
+    // Left and Right outer boundary fences
+    const leftFence = createFenceSection(46, true);
+    leftFence.rotation.y = Math.PI / 2;
+    leftFence.position.set(-20, 0, 1);
+    compoundFences.add(leftFence);
+
+    const rightFence = createFenceSection(46, true);
+    rightFence.rotation.y = Math.PI / 2;
+    rightFence.position.set(20, 0, 1);
+    compoundFences.add(rightFence);
+
+    // Middle dividing fence wings
+    const midFenceL = createFenceSection(15, false);
+    midFenceL.position.set(-11.5, 0, 4.8);
+    compoundFences.add(midFenceL);
+
+    const midFenceR = createFenceSection(15, false);
+    midFenceR.position.set(11.5, 0, 4.8);
+    compoundFences.add(midFenceR);
+
+    // Middle Chumon Gate Arch
+    const gateGroup = new THREE.Group();
+    gateGroup.position.set(0, 0, 4.8);
+
+    const gatePillarL = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 3.8, 32), matDarkWood);
+    gatePillarL.position.set(-2.0, 1.9, 0);
+    gatePillarL.castShadow = true;
+    gateGroup.add(gatePillarL);
+
+    const gatePillarR = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 3.8, 32), matDarkWood);
+    gatePillarR.position.set(2.0, 1.9, 0);
+    gatePillarR.castShadow = true;
+    gateGroup.add(gatePillarR);
+
+    // Gate Curved Roof
+    const gateRoof = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.28, 1.6), matRoofTiles);
+    gateRoof.position.set(0, 3.8, 0);
+    gateRoof.castShadow = true;
+    gateGroup.add(gateRoof);
+
+    const gateRidge = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 5.2, 32), matRoofTiles);
+    gateRidge.rotation.z = Math.PI / 2;
+    gateRidge.position.set(0, 4.0, 0);
+    gateGroup.add(gateRidge);
+
+    const gateSign = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.48, 0.08), matWood);
+    gateSign.position.set(0, 3.2, 0);
+    gateGroup.add(gateSign);
+
+    compoundFences.add(gateGroup);
+    scene.add(compoundFences);
+
+    /* ==========================================================================
+       6. ZONE 1: HIGH-POLY TEA HOUSE (CHAYA) WITH SLIDING DOORS - Z = +10.5
+       ========================================================================== */
+    const teaHouse = new THREE.Group();
+    teaHouse.position.set(0, 0, 10.5);
+
+    // Elevated cedar platform (Engawa)
+    const thBase = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.58, 8.2), matWood);
+    thBase.position.y = 0.29;
+    thBase.receiveShadow = true;
+    thBase.castShadow = true;
+    teaHouse.add(thBase);
+
+    // Tatami Floor Mats
+    const thTatami = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.05, 6.2), matTatami);
+    thTatami.position.set(0, 0.60, 0);
+    thTatami.receiveShadow = true;
+    teaHouse.add(thTatami);
+
+    // 8 Structural Pillars on Granite Foundation Stones (32 segments)
+    const thPillars = [
+      [-4.6, -3.6], [4.6, -3.6],
+      [-4.6, 3.6],  [4.6, 3.6],
+      [-4.6, 0],    [4.6, 0],
+      [0, -3.6],    [0, 3.6]
+    ];
+    thPillars.forEach(([px, pz]) => {
+      const stoneBase = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.30, 0.22, 32), matStone);
+      stoneBase.position.set(px, 0.68, pz);
+      teaHouse.add(stoneBase);
+
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 3.6, 32), matDarkWood);
+      p.position.set(px, 2.45, pz);
+      p.castShadow = true;
+      teaHouse.add(p);
+    });
+
+    // --- DETAILED SLIDING SHOJI DOORS & FRAMES ---
+    function buildShojiDoor(w, h, handleOnRight = true) {
+      const g = new THREE.Group();
+      const fMat = matDarkWood;
+      const bThick = 0.07;
+      const dThick = 0.05;
+
+      // Sturdy cedar outer frame
+      const fL = new THREE.Mesh(new THREE.BoxGeometry(bThick, h, dThick), fMat);
+      fL.position.set(-w/2 + bThick/2, h/2, 0);
+      g.add(fL);
+
+      const fR = new THREE.Mesh(new THREE.BoxGeometry(bThick, h, dThick), fMat);
+      fR.position.set(w/2 - bThick/2, h/2, 0);
+      g.add(fR);
+
+      const fTop = new THREE.Mesh(new THREE.BoxGeometry(w, bThick, dThick), fMat);
+      fTop.position.set(0, h - bThick/2, 0);
+      g.add(fTop);
+
+      // Wooden lower kickboard panel (Koshita)
+      const fBot = new THREE.Mesh(new THREE.BoxGeometry(w, 0.55, dThick), fMat);
+      fBot.position.set(0, 0.275, 0);
+      g.add(fBot);
+
+      // Translucent lattice paper
+      const paper = new THREE.Mesh(new THREE.PlaneGeometry(w - bThick*2, h - 0.55 - bThick), matShoji);
+      paper.position.set(0, 0.55 + (h - 0.55 - bThick)/2, 0);
+      g.add(paper);
+
+      // Bronze recessed handle (Hikite)
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 32), matGold);
+      handle.rotation.x = Math.PI / 2;
+      const hx = handleOnRight ? (w/2 - 0.2) : (-w/2 + 0.2);
+      handle.position.set(hx, h * 0.45, dThick/2 + 0.005);
+      g.add(handle);
+
+      return g;
+    }
+
+    // Door tracks (Upper Lintel Kamoi & Lower Threshold Shikii)
+    const doorTrackBottom = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.08, 0.2), matDarkWood);
+    doorTrackBottom.position.set(0, 0.62, 3.6);
+    teaHouse.add(doorTrackBottom);
+
+    const doorTrackTop = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.12, 0.2), matDarkWood);
+    doorTrackTop.position.set(0, 3.5, 3.6);
+    teaHouse.add(doorTrackTop);
+
+    // Front Sliding Doors:
+    // Left door (slid slightly ajar so the entrance is welcoming)
+    const doorFrontL = buildShojiDoor(2.1, 2.8, true);
+    doorFrontL.position.set(-2.5, 0.65, 3.56);
+    teaHouse.add(doorFrontL);
+
+    // Right door (closed with detailed frame)
+    const doorFrontR = buildShojiDoor(2.1, 2.8, false);
+    doorFrontR.position.set(1.1, 0.65, 3.62);
+    teaHouse.add(doorFrontR);
+
+    // Rear Doors leading to backyard courtyard
+    const doorBackL = buildShojiDoor(2.1, 2.8, false);
+    doorBackL.position.set(-1.1, 0.65, -3.58);
+    teaHouse.add(doorBackL);
+
+    const doorBackR = buildShojiDoor(2.1, 2.8, true);
+    doorBackR.position.set(1.1, 0.65, -3.58);
+    teaHouse.add(doorBackR);
+
+    // Solid Shoji side walls
+    const sideWallL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 7.2), matShoji);
+    sideWallL.position.set(-4.6, 2.05, 0);
+    teaHouse.add(sideWallL);
+
+    const sideWallR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 7.2), matShoji);
+    sideWallR.position.set(4.6, 2.05, 0);
+    teaHouse.add(sideWallR);
+
+    // Hanging Red & Cream Paper Chochin Lantern with warm PointLight at the entrance
+    const chochinGroup = new THREE.Group();
+    chochinGroup.position.set(0, 3.2, 3.9);
+
+    const chochinBody = new THREE.Mesh(new THREE.SphereGeometry(0.32, 32, 24), new THREE.MeshStandardMaterial({
+      color: 0xff382e,
+      roughness: 0.5,
+      emissive: 0x881a14,
+      emissiveIntensity: 0.4
+    }));
+    chochinGroup.add(chochinBody);
+
+    const chochinCapT = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.08, 32), matDarkWood);
+    chochinCapT.position.y = 0.32;
+    chochinGroup.add(chochinCapT);
+
+    const chochinCapB = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.08, 32), matDarkWood);
+    chochinCapB.position.y = -0.32;
+    chochinGroup.add(chochinCapB);
+
+    const chochinLight = new THREE.PointLight(0xffaa44, 1.4, 7);
+    chochinLight.position.y = 0;
+    chochinGroup.add(chochinLight);
+
+    teaHouse.add(chochinGroup);
+
+    // Split Noren Curtains hanging over entrance
+    const norenMat = new THREE.MeshStandardMaterial({ color: 0x1d2e3d, roughness: 0.85 });
+    for (let nx = -3.0; nx <= 3.0; nx += 1.5) {
+      const norenPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.9), norenMat);
+      norenPanel.position.set(nx, 3.1, 3.65);
+      teaHouse.add(norenPanel);
+    }
+
+    // --- HIGH-POLY CURVED TEA HOUSE ROOF (32 radial segments) ---
+    const thRoofGeo = new THREE.ConeGeometry(7.8, 2.8, 32);
+    thRoofGeo.scale(1.15, 1, 0.9);
+    const thRoofMain = new THREE.Mesh(thRoofGeo, matRoofTiles);
+    thRoofMain.position.set(0, 4.8, 0);
+    thRoofMain.rotation.y = Math.PI / 4;
+    thRoofMain.castShadow = true;
+    teaHouse.add(thRoofMain);
+
+    // Eave fascia rim with rounded curves
+    const thEaveRim = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.2, 9.2), matDarkWood);
+    thEaveRim.position.set(0, 3.5, 0);
+    teaHouse.add(thEaveRim);
+
+    // High-poly Ridge Beam and Onigawara End Caps
+    const thRidge = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 7.8, 32), matRoofTiles);
+    thRidge.rotation.x = Math.PI / 2;
+    thRidge.position.set(0, 6.2, 0);
+    teaHouse.add(thRidge);
+
+    [-1, 1].forEach(dir => {
+      const oni = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.32, 0.2, 32), matRoofTiles);
+      oni.rotation.x = Math.PI / 2;
+      oni.position.set(0, 6.2, dir * 3.9);
+      teaHouse.add(oni);
+    });
+
+    // --- INTERIOR: HIGH-POLY TEA COUNTER, CHAWAN BOWLS & TETSUBIN ---
+    // Tea counter
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.8, 1.2), matDarkWood);
+    counter.position.set(2.4, 0.95, -1.8);
+    counter.castShadow = true;
+    teaHouse.add(counter);
+
+    // Handcrafted ceramic tea bowls (Chawan) with 32 segments
+    const chawanMatGreen = new THREE.MeshStandardMaterial({ color: 0x3d6642, roughness: 0.3, metalness: 0.1 });
+    const chawanMatBlack = new THREE.MeshStandardMaterial({ color: 0x1f1f22, roughness: 0.3, metalness: 0.2 });
+
+    const bowl1 = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.11, 0.16, 32), chawanMatGreen);
+    bowl1.position.set(1.5, 1.43, -1.7);
+    teaHouse.add(bowl1);
+
+    const bowl2 = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.11, 0.16, 32), chawanMatBlack);
+    bowl2.position.set(2.2, 1.43, -1.7);
+    teaHouse.add(bowl2);
+
+    // Bamboo tea whisk (Chasen)
+    const chasen = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.18, 24), matBamboo);
+    chasen.position.set(2.8, 1.44, -1.7);
+    teaHouse.add(chasen);
+
+    // Sunken Irori Hearth
+    const thIrori = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.16, 1.8), matDarkWood);
+    thIrori.position.set(0, 0.65, 0);
+    teaHouse.add(thIrori);
+
+    // Smooth Cast Iron Tetsubin Kettle (32 segments)
+    const thKettle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.40, 0.42, 32), new THREE.MeshStandardMaterial({ color: 0x1a1c1e, roughness: 0.35, metalness: 0.85 }));
+    thKettle.position.set(0, 0.98, 0);
+    thKettle.castShadow = true;
+    teaHouse.add(thKettle);
+
+    const thKettleLid = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.09, 32), matGold);
+    thKettleLid.position.set(0, 1.22, 0);
+    teaHouse.add(thKettleLid);
+
+    // Kettle curved handle (Torus with 32 segments)
+    const kettleHandle = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.025, 16, 32, Math.PI), matGold);
+    kettleHandle.position.set(0, 1.25, 0);
+    kettleHandle.rotation.x = Math.PI;
+    teaHouse.add(kettleHandle);
+
+    // Seated Customer Cushions (Zabuton)
+    const seatPositions = [
+      { x: -2.4, z: 11.8, occupied: false },
+      { x: -2.4, z: 9.6, occupied: false },
+      { x: 1.8, z: 11.8, occupied: false },
+      { x: -1.2, z: 8.5, occupied: false }
+    ];
+    seatPositions.forEach(s => {
+      const cushion = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.12, 32), new THREE.MeshStandardMaterial({ color: 0x8b2b2b, roughness: 0.8 }));
+      cushion.position.set(s.x, 0.66, s.z);
+      cushion.castShadow = true;
+      scene.add(cushion);
+    });
+
+    scene.add(teaHouse);
+
+    /* ==========================================================================
+       7. ZONE 2: HIGH-POLY SAMURAI RESIDENCE (OMOYA) - Z = -2.0
+       ========================================================================== */
+    const samuraiHouse = new THREE.Group();
+    samuraiHouse.position.set(0, 0, -2.0);
+
+    const shBase = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.68, 10.2), matWood);
+    shBase.position.y = 0.34;
+    shBase.receiveShadow = true;
+    shBase.castShadow = true;
+    samuraiHouse.add(shBase);
+
+    const shTatami = new THREE.Mesh(new THREE.BoxGeometry(10.8, 0.05, 8.0), matTatami);
+    shTatami.position.set(0, 0.69, 0);
+    shTatami.receiveShadow = true;
+    samuraiHouse.add(shTatami);
+
+    // 8 High-Poly Residence Pillars (32 segments)
+    const shPillars = [
+      [-6.0, -4.5], [6.0, -4.5],
+      [-6.0, 4.5],  [6.0, 4.5],
+      [-6.0, 0],    [6.0, 0],
+      [0, -4.5],    [0, 4.5]
+    ];
+    shPillars.forEach(([px, pz]) => {
+      const stoneBase = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.24, 32), matStone);
+      stoneBase.position.set(px, 0.76, pz);
+      samuraiHouse.add(stoneBase);
+
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 3.8, 32), matDarkWood);
+      p.position.set(px, 2.65, pz);
+      p.castShadow = true;
+      samuraiHouse.add(p);
+    });
+
+    // Residence Sliding Doors & Shoji Panels
+    const shFrontL = buildShojiDoor(2.4, 3.0, false);
+    shFrontL.position.set(-2.6, 0.72, 4.5);
+    samuraiHouse.add(shFrontL);
+
+    const shFrontR = buildShojiDoor(2.4, 3.0, true);
+    shFrontR.position.set(2.6, 0.72, 4.5);
+    samuraiHouse.add(shFrontR);
+
+    const shBackL = buildShojiDoor(2.4, 3.0, false);
+    shBackL.position.set(-2.6, 0.72, -4.5);
+    samuraiHouse.add(shBackL);
+
+    const shBackR = buildShojiDoor(2.4, 3.0, true);
+    shBackR.position.set(2.6, 0.72, -4.5);
+    samuraiHouse.add(shBackR);
+
+    const shSideL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.0, 9.0), matShoji);
+    shSideL.position.set(-6.0, 2.2, 0);
+    samuraiHouse.add(shSideL);
+
+    const shSideR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.0, 9.0), matShoji);
+    shSideR.position.set(6.0, 2.2, 0);
+    samuraiHouse.add(shSideR);
+
+    // High-Poly Hip-and-Gable Residence Roof (32 segments)
+    const shRoofGeo = new THREE.ConeGeometry(10.5, 3.6, 32);
+    shRoofGeo.scale(1.2, 1, 0.95);
+    const shRoofMain = new THREE.Mesh(shRoofGeo, matRoofTiles);
+    shRoofMain.position.set(0, 5.5, 0);
+    shRoofMain.rotation.y = Math.PI / 4;
+    shRoofMain.castShadow = true;
+    samuraiHouse.add(shRoofMain);
+
+    const shRidge = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 10.5, 32), matRoofTiles);
+    shRidge.rotation.x = Math.PI / 2;
+    shRidge.position.set(0, 7.2, 0);
+    samuraiHouse.add(shRidge);
+
+    [-1, 1].forEach(dir => {
+      const oni = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.22, 32), matRoofTiles);
+      oni.rotation.x = Math.PI / 2;
+      oni.position.set(0, 7.2, dir * 5.25);
+      samuraiHouse.add(oni);
+    });
+
+    // Interior: Sword Stand (Katana-Kake) with High-Poly Daisho Swords
+    const swordStandGroup = new THREE.Group();
+    swordStandGroup.position.set(-4.2, 0.72, -4.0);
+
+    const standBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.45), matDarkWood);
+    swordStandGroup.add(standBase);
+
+    const standPostL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.9, 0.22), matDarkWood);
+    standPostL.position.set(-0.55, 0.45, 0);
+    swordStandGroup.add(standPostL);
+
+    const standPostR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.9, 0.22), matDarkWood);
+    standPostR.position.set(0.55, 0.45, 0);
+    swordStandGroup.add(standPostR);
+
+    // High-poly Katana on display (32 segments)
+    const katanaDisp = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.6, 32), new THREE.MeshStandardMaterial({ color: 0x111, roughness: 0.3 }));
+    katanaDisp.rotation.z = Math.PI / 2;
+    katanaDisp.position.set(0, 0.72, 0);
+    swordStandGroup.add(katanaDisp);
+
+    const tsubaDisp = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.02, 32), matGold);
+    tsubaDisp.position.set(0.45, 0.72, 0);
+    swordStandGroup.add(tsubaDisp);
+
+    // Wakizashi short sword
+    const wakizashiDisp = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.15, 32), new THREE.MeshStandardMaterial({ color: 0x8b2b2b, roughness: 0.4 }));
+    wakizashiDisp.rotation.z = Math.PI / 2;
+    wakizashiDisp.position.set(0, 0.5, 0);
+    swordStandGroup.add(wakizashiDisp);
+
+    samuraiHouse.add(swordStandGroup);
+
+    // Meditation Zabuton
+    const shMeditationMat = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.12, 32), new THREE.MeshStandardMaterial({ color: 0x24384a, roughness: 0.85 }));
+    shMeditationMat.position.set(0, 0.76, 0);
+    samuraiHouse.add(shMeditationMat);
+
+    scene.add(samuraiHouse);
+
+    /* ==========================================================================
+       8. ZONE 3: BACKYARD FARM & TSUKUBAI (HIGH-POLY) - Z = -13.5
+       ========================================================================== */
+    const backyard = new THREE.Group();
+    backyard.position.set(0, 0, -13.5);
+
+    const CROPS = [];
+    const plotPositions = [
+      { x: -5.2, z: 0 }, { x: -1.75, z: 0 }, { x: 1.75, z: 0 }, { x: 5.2, z: 0 },
+      { x: -5.2, z: -3.8 }, { x: -1.75, z: -3.8 }, { x: 1.75, z: -3.8 }, { x: 5.2, z: -3.8 }
+    ];
+
+    plotPositions.forEach((pos, idx) => {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.24, 2.1), matDarkWood);
+      frame.position.set(pos.x, 0.12, pos.z);
+      backyard.add(frame);
+
+      const plotMesh = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.26, 1.9), matSoilDry.clone());
+      plotMesh.position.set(pos.x, 0.13, pos.z);
+      plotMesh.receiveShadow = true;
+      backyard.add(plotMesh);
+
+      const plantGroup = new THREE.Group();
+      plantGroup.position.set(pos.x, 0.26, pos.z);
+      backyard.add(plantGroup);
+
+      CROPS.push({
+        id: idx,
+        worldPos: new THREE.Vector3(pos.x, 0.26, pos.z - 13.5),
+        plotMesh: plotMesh,
+        plantGroup: plantGroup,
+        state: 'empty',
+        seedType: null,
+        growth: 0,
+        watered: false
+      });
+    });
+
+    // Traditional Stone Tsukubai Basin (32 segments)
+    const tsukubaiGroup = new THREE.Group();
+    tsukubaiGroup.position.set(-9.2, 0, -2.0);
+
+    const stoneBasin = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.65, 0.68, 32), matStone);
+    stoneBasin.position.y = 0.34;
+    tsukubaiGroup.add(stoneBasin);
+
+    const basinWater = new THREE.Mesh(new THREE.CircleGeometry(0.6, 32), new THREE.MeshStandardMaterial({ color: 0x1f5f6b, roughness: 0.1 }));
+    basinWater.rotation.x = -Math.PI / 2;
+    basinWater.position.y = 0.69;
+    tsukubaiGroup.add(basinWater);
+
+    const bambooSpout = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 1.8, 24), matBamboo);
+    bambooSpout.position.set(-0.65, 0.95, 0);
+    bambooSpout.rotation.z = -0.5;
+    tsukubaiGroup.add(bambooSpout);
+
+    backyard.add(tsukubaiGroup);
+
+    // Tea Drying Table
+    const dryTable = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.72, 1.2), matWood);
+    dryTable.position.set(9.2, 0.36, -2.0);
+    dryTable.castShadow = true;
+    backyard.add(dryTable);
+
+    const dryLeaves = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.9), new THREE.MeshStandardMaterial({ color: 0x3d7039, roughness: 0.9 }));
+    dryLeaves.position.set(9.2, 0.75, -2.0);
+    backyard.add(dryLeaves);
+
+    scene.add(backyard);
+
+    /* ==========================================================================
+       9. FRONT ZEN COURTYARD, KOI POND & HIGH-POLY TREES
+       ========================================================================== */
+    const frontGarden = new THREE.Group();
+
+    // Koi Pond Water Basin (32 segments)
+    const pondGeo = new THREE.CylinderGeometry(5.0, 4.6, 0.6, 32);
+    const pondMat = new THREE.MeshStandardMaterial({ color: 0x1f5f6b, roughness: 0.1, transparent: true, opacity: 0.85 });
+    const pondMesh = new THREE.Mesh(pondGeo, pondMat);
+    pondMesh.position.set(-13, 0.22, 17);
+    frontGarden.add(pondMesh);
+
+    // Smooth rounded pond stones (32 segments)
+    for (let a = 0; a < Math.PI * 2; a += 0.32) {
+      const rx = -13 + Math.cos(a) * 5.0;
+      const rz = 17 + Math.sin(a) * 5.0;
+      const rock = new THREE.Mesh(new THREE.SphereGeometry(0.42 + Math.random() * 0.18, 24, 18), matStone);
+      rock.scale.set(1.1, 0.7, 1.0);
+      rock.position.set(rx, 0.28, rz);
+      frontGarden.add(rock);
+    }
+
+    // Swimming Koi Fish (32 segments, flexible body)
+    const KOI_FISH = [];
+    const koiMat = new THREE.MeshStandardMaterial({ color: 0xff382e, roughness: 0.4 });
+    for (let k = 0; k < 3; k++) {
+      const fGroup = new THREE.Group();
+      const fBody = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.7, 32), koiMat);
+      fBody.rotation.x = Math.PI / 2;
+      fGroup.add(fBody);
+
+      // Tail fin
+      const fTail = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }));
+      fTail.rotation.x = -Math.PI / 2;
+      fTail.position.set(0, 0, -0.45);
+      fGroup.add(fTail);
+
+      fGroup.position.set(-13, 0.36, 17);
+      frontGarden.add(fGroup);
+      KOI_FISH.push({
+        group: fGroup,
+        angle: k * (Math.PI * 2 / 3),
+        speed: 0.012 + k * 0.005,
+        radius: 2.4 + k * 0.7
+      });
+    }
+
+    // Handcrafted garden: all scatter is deterministic, with shared instanced meshes.
+    function gardenRandom(seed) {
+      return () => { seed = (Math.imul(seed, 1664525) + 1013904223) | 0; return (seed >>> 0) / 4294967296; };
+    }
+    function gardenMesh(parent, geometry, material, x=0, y=0, z=0, sx=1, sy=1, sz=1) {
+      const m = new THREE.Mesh(geometry, material);
+      m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.castShadow = true; m.receiveShadow = true;
+      parent.add(m); return m;
+    }
+    function gardenInstances(parent, geometry, material, items) {
+      const mesh = new THREE.InstancedMesh(geometry, material, items.length);
+      const o = new THREE.Object3D(); const color = new THREE.Color();
+      items.forEach((p,i) => {
+        o.position.set(...p.p); o.rotation.set(...(p.r || [0,0,0])); o.scale.set(...(p.s || [1,1,1])); o.updateMatrix();
+        mesh.setMatrixAt(i,o.matrix); if(p.c !== undefined) mesh.setColorAt(i,color.set(p.c).convertSRGBToLinear());
+      });
+      mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh;
+    }
+    function gardenBranch(parent, a, b, radiusA, radiusB, material) {
+      const av=new THREE.Vector3(...a), bv=new THREE.Vector3(...b), dir=bv.clone().sub(av);
+      const m=new THREE.Mesh(new THREE.CylinderGeometry(radiusB,radiusA,dir.length(),7),material);
+      m.position.copy(av.add(bv).multiplyScalar(.5)); m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());
+      m.castShadow=true; parent.add(m); return m;
+    }
+    function createSakuraTree(x,z) {
+      const group=new THREE.Group(); group.position.set(x,0,z); group.userData.sakura=true;
+      const rand=gardenRandom(Math.round(x*913+z*571)+6131);
+      const bark=new THREE.MeshStandardMaterial({color:0x76584e,roughness:1,flatShading:true});
+      const blossom=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.94,flatShading:true});
+      const joints=[[0,0,0],[-.24,1.5,.06],[.12,2.85,-.12],[-.14,4.1,.08],[.42,5.45,.12]];
+      for(let i=0;i<4;i++) gardenBranch(group,joints[i],joints[i+1],.45-i*.082,.38-i*.085,bark);
+      for(let i=0;i<7;i++) {
+        const a=i*2.4, end=[Math.cos(a)*(.8+rand()*1.4),3.8+rand()*1.7,Math.sin(a)*(1+rand()*1.5)];
+        gardenBranch(group,joints[2],end,.17,.045,bark);
+        gardenBranch(group,end,[end[0]*1.35,end[1]+.6,end[2]*1.4],.06,.015,bark);
+        gardenBranch(group,[0,.18,0],[Math.cos(a)*.88,.06,Math.sin(a)*.88],.22,.02,bark);
+      }
+      const blooms=[]; const petals=[];
+      const palette=[0xf3b4b8,0xf6c6c2,0xfad3c9,0xe99fae,0xffded1,0xe9a1b5];
+      for(let i=0;i<95;i++) {
+        const angle=rand()*Math.PI*2, radius=Math.sqrt(rand())*3.0;
+        const px=Math.cos(angle)*radius, pz=Math.sin(angle)*radius*.85;
+        const py=4.45+Math.sqrt(Math.max(0,1-radius*radius/11)) * 1.8+rand()*.6;
+        const s=.45+rand()*.47;
+        blooms.push({p:[px,py,pz],s:[s*1.25,s*.72,s],r:[rand(),rand(),rand()],c:palette[Math.floor(rand()*palette.length)]});
+        for(let j=0;j<4;j++) petals.push({p:[px+(rand()-.5)*1.6,py+(rand()-.5)*1.1,pz+(rand()-.5)*1.4],s:[.095,.04,.095],r:[rand()*3,rand()*3,rand()*3],c:palette[j%palette.length]});
+      }
+      gardenInstances(group,new THREE.IcosahedronGeometry(1,1),blossom,blooms);
+      gardenInstances(group,new THREE.IcosahedronGeometry(1,0),blossom,petals);
+      return group;
+    }
+
+    function installCozyGarden() {
+      const rand=gardenRandom(8318), group=new THREE.Group(); group.name='Handcrafted garden'; scene.add(group);
+      const mat=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:.9,...extra});
+      const moss=mat(0x718753), stone=mat(0x9a9a85,{flatShading:true}), cedar=mat(0x936849), dark=mat(0x5d4a3e), sand=mat(0xc7b592);
+      const white=mat(0xffe3b7), leaf=mat(0xffffff,{side:THREE.DoubleSide}), clay=mat(0x997353), water=mat(0x5ca4a1,{roughness:.22,metalness:.18,transparent:true,opacity:.72});
+      const sphere=new THREE.IcosahedronGeometry(1,1), box=new THREE.BoxGeometry(1,1,1);
+      const grasses=[], pebbles=[], blossoms=[], ferns=[], shrubs=[], mosses=[];
+
+      // Quiet, dappled ground with painted earth and moss variation.
+      const cv=document.createElement('canvas'); cv.width=cv.height=512; const ctx=cv.getContext('2d');
+      ctx.fillStyle='#879463';ctx.fillRect(0,0,512,512);
+      for(let i=0;i<7000;i++) {
+        ctx.fillStyle=['#929d70','#77875c','#a1a777','#839067'][i%4];ctx.globalAlpha=.28;
+        ctx.beginPath();ctx.ellipse(rand()*512,rand()*512,rand()*10+1,rand()*5+1,rand()*6,0,Math.PI*2);ctx.fill();
+      }
+      const groundTex=new THREE.CanvasTexture(cv);groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping;groundTex.repeat.set(12,12);groundTex.encoding=THREE.sRGBEncoding;
+      matGrass.map=groundTex;matGrass.color.setHex(0xffffff);matGrass.needsUpdate=true;
+      const pathMat=mat(0xc0b38e);
+      // Winding stepping-stone trails connect the pond, entrance and back garden.
+      const path=[];
+      for(let i=0;i<19;i++) {
+        const z=25-i*2.55; const x=z>15 ? Math.sin(i*.6)*.4 : z>5 ? 7.8+Math.sin(i*.6)*.8 : z>-8 ? 9.2 : Math.max(0,9.2-(i-13)*1.7);
+        path.push({p:[x,.018,z],s:[1.2,.026,1.6],r:[0,rand()*6,0],c:0xb3aa8b});
+        for(let j=0;j<6;j++) pebbles.push({p:[x+(rand()-.5)*2.5,.07,z+(rand()-.5)*2],s:[.08+rand()*.1,.04,.06+rand()*.1],r:[0,rand()*6,0],c:0xbab69a});
+      }
+      gardenInstances(group,new THREE.CylinderGeometry(1,1,1,9),pathMat,path);
+      for(let i=0;i<8;i++) {
+        const x=-3-i*1.16,z=19.1+Math.sin(i*.5)*.8;
+        gardenMesh(group,new THREE.CylinderGeometry(.57,.66,.11,7),stone,x,.055,z,1,.7,.8).rotation.y=rand()*6;
+      }
+      // Grass blades and wildflowers cluster naturally around boundaries, away from gameplay.
+      const blade=new THREE.BufferGeometry();
+      blade.setAttribute('position',new THREE.Float32BufferAttribute([-.055,0,0,.055,0,0,.028,.5,.05,-.05,0,.02,.05,0,.02,-.12,.36,-.08],3));blade.computeVertexNormals();
+      for(let i=0;i<2500;i++) {
+        const x=rand()*40-20,z=rand()*47-22;
+        const pond=Math.hypot(x+13,z-17)<5.6;
+        const house=(Math.abs(x)<7.7 && z>-8 && z<15.7);
+        const farm=Math.abs(x)<7.4 && z<-10.8;
+        const pathway=Math.abs(x)<1.3 || (x>7 && x<10.5);
+        if(pond||house||farm||pathway) continue;
+        const size=.32+rand()*.7;
+        grasses.push({p:[x,.01,z],s:[size,size,size],r:[0,rand()*6,0],c:[0x7c9259,0x9da565,0x638451,0xb0ad72][i%4]});
+        if(i%9===0) blossoms.push({p:[x,.18+size*.25,z],s:[.07,.055,.07],c:[0xffe5bd,0xe8c1c2,0xf5d893][i%3]});
+        if(i%8===0) pebbles.push({p:[x,.06,z],s:[.11+rand()*.12,.07+rand()*.09,.12+rand()*.08],r:[rand(),rand()*6,rand()],c:0xaaa58d});
+      }
+      gardenInstances(group,blade,leaf,grasses);gardenInstances(group,sphere,stone,pebbles);gardenInstances(group,sphere,leaf,blossoms);
+      // Round clipped azaleas nestle among rocks, with individual pink flower heads.
+      const beds=[[-17,10],[-18,2],[-16,-7],[17,8],[17,-5],[14,20],[-10,-20],[11,-20],[4,22]];
+      for(const [x,z] of beds) {
+        for(let j=0;j<5;j++) shrubs.push({p:[x+(rand()-.5)*2,.3+rand()*.35,z+(rand()-.5)*2],s:[.6+rand()*.7,.4+rand()*.2,.5+rand()*.6],c:[0x587450,0x75864f,0x819761][j%3]});
+        for(let j=0;j<7;j++) mosses.push({p:[x+(rand()-.5)*3,.04,z+(rand()-.5)*3],s:[.3+rand()*.6,.04,.3+rand()*.5],c:0x788c52});
+      }
+      gardenInstances(group,sphere,leaf,shrubs); gardenInstances(group,sphere,moss,mosses);
+      // Asymmetrical river stones; moss caps follow the silhouette rather than floating.
+      for(const [x,z,s] of [[-17,7,1],[-16,-5,1.2],[15,12,.8],[16,-9,1.4],[-11,-19,.8],[6,22,.7],[-8,22,.7]]) {
+        gardenMesh(group,sphere,stone,x,s*.32,z,s,s*.62,s*.85).rotation.y=rand()*3;
+        gardenMesh(group,sphere,moss,x-.08,s*.65,z,s*.74,.085,s*.62);
+      }
+
+      // A shallow jade pond, visible koi, water lilies and expanding water rings.
+      pondMesh.visible=false;
+      gardenMesh(group,new THREE.CylinderGeometry(4.95,4.8,.18,64),mat(0x537a68),-13,.06,17);
+      const waterGeo=new THREE.CircleGeometry(4.86,72);
+      const waterSurface=gardenMesh(group,waterGeo,water,-13,.34,17);waterSurface.rotation.x=-Math.PI/2;waterSurface.castShadow=false;
+      const waterTime={value:0};
+      water.onBeforeCompile=shader=>{
+        shader.uniforms.gardenTime=waterTime;
+        shader.vertexShader='varying vec3 waterPosition;\n'+shader.vertexShader;
+        shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nwaterPosition = position;');
+        shader.fragmentShader='uniform float gardenTime; varying vec3 waterPosition;\n'+shader.fragmentShader;
+        shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+          float waves = sin(waterPosition.x*5.0+waterPosition.y*3.0+gardenTime*.65)*sin(waterPosition.y*8.0-waterPosition.x*2.0-gardenTime*.4);
+          float glint = pow(max(0.0,waves),12.0)*.16;
+          diffuseColor.rgb += vec3(.62,.78,.62)*glint;
+        `);
+      };
+      const rippleMat=new THREE.MeshBasicMaterial({color:0xddf0c7,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide});
+      const ripples=[];
+      for(let i=0;i<7;i++) {
+        const m=gardenMesh(group,new THREE.RingGeometry(.94,1,48),rippleMat.clone(),-13+(rand()-.5)*5,.357,17+(rand()-.5)*5);
+        m.rotation.x=-Math.PI/2;m.castShadow=false;ripples.push(m);
+      }
+      for(let i=0;i<9;i++) {
+        const a=i*2.4,r=2.5+rand()*1.5,x=-13+Math.cos(a)*r,z=17+Math.sin(a)*r;
+        const pad=gardenMesh(group,new THREE.CircleGeometry(.32+rand()*.18,24,.15,Math.PI*2-.35),mat(0x718f61,{side:THREE.DoubleSide}),x,.365,z);
+        pad.rotation.set(-Math.PI/2,0,a);pad.castShadow=false;
+        if(i%3===0) {
+          const petals=[];
+          for(let j=0;j<8;j++) petals.push({p:[x+Math.cos(j*.785)*.12,.42,z+Math.sin(j*.785)*.12],s:[.07,.05,.16],r:[-.3,j*.785,0],c:0xf6c5c6});
+          gardenInstances(group,sphere,leaf,petals);gardenMesh(group,sphere,white,x,.45,z,.06,.045,.06);
+        }
+      }
+      KOI_FISH.forEach((k,i)=>{
+        k.group.clear();k.group.position.y=.29;
+        const porcelain=mat(0xffead2,{roughness:.4}), vermilion=mat(i===1?0xdca343:0xc56445,{roughness:.4});
+        gardenMesh(k.group,sphere,porcelain,0,0,0,.16,.08,.46);
+        gardenMesh(k.group,sphere,vermilion,.025,.062,.15,.115,.018,.13);
+        gardenMesh(k.group,sphere,vermilion,-.02,.056,-.17,.1,.02,.12);
+        for(const s of [-1,1]) {
+          gardenMesh(k.group,sphere,porcelain,s*.15,-.025,-.04,.14,.025,.14).rotation.y=s*.6;
+          gardenMesh(k.group,sphere,dark,s*.08,.045,.29,.02,.025,.025);
+        }
+        const tail=gardenMesh(k.group,new THREE.ConeGeometry(.18,.25,3),vermilion,0,0,-.48,.85,.9,.25);tail.rotation.x=-Math.PI/2;
+        k.tail=tail;
+      });
+      // An arched cedar footbridge on the near pond edge, with pegged rails.
+      const bridge=new THREE.Group();bridge.position.set(-12.8,0,20.3);group.add(bridge);
+      for(let i=0;i<19;i++) {
+        const x=-2.85+i*.315,y=.45+Math.sin(i/18*Math.PI)*.48;
+        const plank=gardenMesh(bridge,box,i%3===0?dark:cedar,x,y,0,.29,.12,1.45);
+        plank.rotation.z=Math.cos(i/18*Math.PI)*.17;
+        for(const s of [-1,1]) gardenMesh(bridge,new THREE.CylinderGeometry(.024,.024,.009,6),dark,x,y+.073,s*.54);
+      }
+      for(const side of [-1,1]) {
+        for(let i=0;i<5;i++) {
+          const x=-2.8+i*1.4,y=.5+Math.sin(i/4*Math.PI)*.47;
+          gardenMesh(bridge,box,dark,x,y+.42,side*.76,.105,.9,.105);
+          gardenMesh(bridge,sphere,cedar,x,y+.92,side*.76,.09,.09,.09);
+          if(i<4) {
+            const nx=x+1.4,ny=.5+Math.sin((i+1)/4*Math.PI)*.47;
+            gardenBranch(bridge,[x,y+.75,side*.76],[nx,ny+.75,side*.76],.045,.045,cedar);
+          }
+        }
+      }
+      // Bamboo groves: segmented culms, collars and lanceolate leaves.
+      const bamboo=mat(0x7d9163),bambooRing=mat(0xa2ae78), bambooLeaves=[];
+      for(const [gx,gz] of [[18,-15],[-18,-12],[-17,-20],[18,1]]) {
+        for(let i=0;i<7;i++) {
+          const x=gx+(rand()-.5)*2.2,z=gz+(rand()-.5)*2.1,h=3+rand()*2.3;
+          gardenMesh(group,new THREE.CylinderGeometry(.075,.12,h,7),bamboo,x,h/2,z);
+          for(let y=.65;y<h;y+=.65) {
+            gardenMesh(group,new THREE.CylinderGeometry(.12,.12,.045,7),bambooRing,x,y,z);
+            if(y>1.8) for(let j=0;j<4;j++) {
+              const a=rand()*6.28;
+              bambooLeaves.push({p:[x+Math.cos(a)*.42,y+.1,z+Math.sin(a)*.42],s:[.11,.035,.5],r:[rand()*.6,a,.2],c:0x688558});
+            }
+          }
+        }
+      }
+      gardenInstances(group,sphere,leaf,bambooLeaves);
+      // Garden lanterns are warm emissive paper, with lattices and stone pagoda caps.
+      const lanterns=[];
+      for(const [x,z] of [[-4,18],[6,18],[8,5],[9,-9],[-8,-11],[-17,21]]) {
+        const g=new THREE.Group();g.position.set(x,0,z);group.add(g);
+        gardenMesh(g,new THREE.CylinderGeometry(.4,.55,.18,6),stone,0,.09,0);
+        gardenMesh(g,new THREE.CylinderGeometry(.14,.22,.75,6),stone,0,.55,0);
+        gardenMesh(g,box,stone,0,.96,0,.67,.13,.67);
+        const glow=mat(0xffd395,{emissive:0xffad54,emissiveIntensity:.65});
+        gardenMesh(g,box,glow,0,1.3,0,.43,.5,.43);
+        for(const px of [-.25,.25]) for(const pz of [-.25,.25]) gardenMesh(g,box,dark,px,1.3,pz,.055,.56,.055);
+        const cap=gardenMesh(g,new THREE.ConeGeometry(.63,.3,4),stone,0,1.73,0);cap.rotation.y=Math.PI/4;
+        gardenMesh(g,sphere,stone,0,1.96,0,.09,.13,.09);
+        lanterns.push(glow);
+        // Ground glow uses a transparent disk instead of an expensive per-lantern shadow.
+        const glowCV=document.createElement('canvas');glowCV.width=glowCV.height=64;const gc=glowCV.getContext('2d');const grd=gc.createRadialGradient(32,32,0,32,32,32);grd.addColorStop(0,'rgba(255,183,87,.35)');grd.addColorStop(1,'rgba(255,183,87,0)');gc.fillStyle=grd;gc.fillRect(0,0,64,64);
+        const glowPlane=gardenMesh(g,new THREE.PlaneGeometry(2.9,2.9),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(glowCV),transparent:true,depthWrite:false}),0,.02,0);glowPlane.rotation.x=-Math.PI/2;glowPlane.castShadow=false;
+      }
+      // Farm joinery, labels, ridged soil, scattered leaves and little planting tools.
+      const farmDetails=[];
+      CROPS.forEach((crop,i)=>{
+        const x=crop.worldPos.x,z=crop.worldPos.z;
+        for(const s of [-1,1]) {
+          gardenMesh(group,box,cedar,x+s*1.32,.2,z,.12,.38,2.2);
+          gardenMesh(group,box,cedar,x,.2,z+s*1.03,2.64,.38,.12);
+          for(const t of [-1,1]) gardenMesh(group,box,dark,x+s*1.33,.25,z+t*1.03,.17,.5,.17);
+        }
+        for(let j=0;j<5;j++) farmDetails.push({p:[x-1+j*.5,.278,z],s:[.1,.035,1.65],c:0x63503a});
+        gardenMesh(group,box,cedar,x+.9,.49,z+.9,.045,.56,.05);
+        const label=gardenMesh(group,box,white,x+.9,.73,z+.9,.36,.16,.025);label.rotation.z=.1;
+        gardenMesh(group,new THREE.SphereGeometry(.07,8,6),moss,x+.9,.73,z+.92,1,.3,.15);
+      });
+      gardenInstances(group,box,clay,farmDetails);
+      // Raked sand meditation bed with concentric comb marks.
+      const zen=gardenMesh(group,new THREE.CylinderGeometry(3.3,3.4,.025,48),sand,13,.018,-3,1,1,1.3);
+      const rakeMat=mat(0xb4a581);
+      for(let i=0;i<18;i++) {
+        const ring=gardenMesh(group,new THREE.TorusGeometry(.6+i*.14,.015,3,72),rakeMat,13,.04,-3,1,1.3,1);ring.rotation.x=-Math.PI/2;ring.castShadow=false;
+      }
+      gardenMesh(group,sphere,stone,13,.57,-3,1,.85,.8);
+      gardenMesh(group,sphere,moss,12.9,1.11,-3,.65,.08,.47);
+      gardenMesh(group,sphere,stone,14,.19,-2.6,.44,.33,.65);
+
+      // A distant, soft evergreen backdrop gives the garden a sheltered valley setting.
+      const crowns=[],trunks=[];
+      for(let i=0;i<65;i++) {
+        const a=i/65*Math.PI*2,r=36+rand()*15,x=Math.cos(a)*r,z=Math.sin(a)*r,h=5+rand()*9;
+        trunks.push({p:[x,h*.3,z],s:[.35,h*.6,.35],c:0x697768});
+        for(let j=0;j<3;j++) crowns.push({p:[x,h*.44+j*h*.18,z],s:[3.2-j*.65,h*.38,3.1-j*.65],c:[0x728e7c,0x7a9680,0x88a08a][i%3]});
+      }
+      gardenInstances(group,new THREE.CylinderGeometry(1,1,1,5),dark,trunks);
+      gardenInstances(group,new THREE.ConeGeometry(1,1,7),leaf,crowns);
+      // Visible drifting petals (the original buffer had no renderable Points object).
+      const pc=document.createElement('canvas');pc.width=pc.height=32;const px=pc.getContext('2d');px.fillStyle='#ffe0d4';px.beginPath();px.ellipse(16,16,8,13,.45,0,Math.PI*2);px.fill();
+      const particles=new THREE.Points(petalGeo,new THREE.PointsMaterial({map:new THREE.CanvasTexture(pc),color:0xffdad0,size:.14,transparent:true,alphaTest:.1,depthWrite:false}));scene.add(particles);
+      // Kettle steam is soft, translucent and rises in lazy curls.
+      const steamCV=document.createElement('canvas');steamCV.width=steamCV.height=64;const sc=steamCV.getContext('2d');const sg=sc.createRadialGradient(32,32,0,32,32,32);sg.addColorStop(0,'rgba(255,247,225,.38)');sg.addColorStop(1,'rgba(255,247,225,0)');sc.fillStyle=sg;sc.fillRect(0,0,64,64);
+      const steamTexture=new THREE.CanvasTexture(steamCV),steam=[];
+      for(let i=0;i<9;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:steamTexture,transparent:true,depthWrite:false,opacity:.3}));scene.add(s);steam.push(s);}
+      // Droplets trickle from the bamboo spout into the basin.
+      const droplets=[];
+      for(let i=0;i<5;i++) droplets.push(gardenMesh(group,sphere,water,-9.42,1,-15.5,.022,.08,.022));
+      window.cozyGarden={group, update(t){
+        waterTime.value=t;
+        ripples.forEach((m,i)=>{const p=(t*.18+i/7)%1;m.scale.setScalar(.15+p*1.5);m.material.opacity=(1-p)*.17;});
+        KOI_FISH.forEach((k,i)=>{k.tail.rotation.z=Math.sin(t*3+i)*.3;});
+        steam.forEach((s,i)=>{const p=(t*.19+i/9)%1;s.position.set(Math.sin(p*7+i)*.12*p,1.46+p*1.55,10.5+Math.cos(p*6+i)*.09);s.scale.setScalar(.18+p*.56);s.material.opacity=Math.sin(p*Math.PI)*.3;});
+        droplets.forEach((m,i)=>{m.position.y=1.22-((t*.6+i/5)%1)*.51;});
+        lanterns.forEach((m,i)=>m.emissiveIntensity=.65+Math.sin(t*1.1+i)*.07);
+      }};
+    }
+
+    frontGarden.add(createSakuraTree(-13, 8));
+    frontGarden.add(createSakuraTree(14, 15));
+    frontGarden.add(createSakuraTree(-14, -18));
+    frontGarden.add(createSakuraTree(14, -18));
+
+    // Smooth Stepping Stones (32 segments)
+    for (let z = 24; z >= -20; z -= 2.0) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.78, 0.1, 32), matStone);
+      s.position.set((Math.random() - 0.5) * 0.3, 0.05, z);
+      s.rotation.y = Math.random() * Math.PI;
+      s.receiveShadow = true;
+      frontGarden.add(s);
+    }
+
+    scene.add(frontGarden);
+
+    /* ==========================================================================
+       10. PARTICLES: SAKURA PETALS
+       ========================================================================== */
+    const PETAL_COUNT = 150;
+    const petalGeo = new THREE.BufferGeometry();
+    const petalPositions = new Float32Array(PETAL_COUNT * 3);
+    const petalVelocities = [];
+
+    for (let i = 0; i < PETAL_COUNT; i++) {
+      petalPositions[i * 3] = (Math.random() - 0.5) * 60;
+      petalPositions[i * 3 + 1] = Math.random() * 15 + 1;
+      petalPositions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+      petalVelocities.push({
+        y: -0.015 - Math.random() * 0.02,
+        x: (Math.random() - 0.5) * 0.02,
+        z: 0.01 + Math.random() * 0.02
+      });
+    }
+    petalGeo.setAttribute('position', new THREE.BufferAttribute(petalPositions, 3));
+    /* ==========================================================================
+       11. REALISTIC HUMAN ANATOMY & CHARACTER SYSTEM (NO BLOCKY MANNEQUINS)
+       ========================================================================== */
+    // Articulated, hand-built characters with modeled faces and layered textiles.
+    function buildRealisticHumanoid(role = 'samurai', robeHex = '#22303c', hasKatana = true) {
+      const charGroup = new THREE.Group();
+      charGroup.name = `Tea house ${role}`;
+      const cache = buildRealisticHumanoid._artCache || (buildRealisticHumanoid._artCache = {
+        ball: new THREE.SphereGeometry(1, 18, 12),
+        box: new THREE.BoxGeometry(1, 1, 1),
+        tube: new THREE.CylinderGeometry(1, 1, 1, 8),
+        materials: new Map()
+      });
+      const colors = {
+        skin: 0xe9b58c, blush: 0xd78a79, ink: 0x302c35, ivory: 0xf1dfb7,
+        thread: 0xd5b47a, hair: role === 'elder' ? 0xadb2ac : 0x33353c,
+        hairLight: role === 'elder' ? 0xd2d1bf : 0x454853,
+        sash: role === 'monk' ? 0x604b39 : role === 'noble' ? 0xc5a361 : 0xab6254,
+        wood: 0x836041, straw: 0xd2ad68, strawLight: 0xe5ca8d, darkStraw: 0xa07b46
+      };
+      function material(color, roughness = 0.88, metalness = 0) {
+        const key = `${color}/${roughness}/${metalness}`;
+        if (!cache.materials.has(key)) cache.materials.set(key, new THREE.MeshStandardMaterial({ color, roughness, metalness }));
+        return cache.materials.get(key);
+      }
+      const mat = {};
+      Object.keys(colors).forEach(key => mat[key] = material(colors[key]));
+      const clothColor = new THREE.Color(robeHex).lerp(new THREE.Color(0x7b9690), 0.22);
+      mat.robe = material(clothColor.getHex());
+      mat.robeLight = material(clothColor.clone().lerp(new THREE.Color(0xe7d7b0), 0.19).getHex());
+      mat.robeDark = material(clothColor.clone().multiplyScalar(0.72).getHex());
+      mat.hakama = material(role === 'monk' ? 0x76674f : role === 'noble' ? 0x685469 : 0x404b54);
+      mat.fold = material(role === 'monk' ? 0x968465 : role === 'noble' ? 0x826b80 : 0x56636b);
+      mat.gold = material(0xc9a464, 0.42, 0.45);
+      mat.lacquer = material(0x3c4d4c, 0.32, 0.08);
+      mat.eye = material(0x282b31, 0.45);
+      mat.white = material(0xfff7df, 0.7);
+
+      function mesh(parent, geo, surface, x, y, z, sx = 1, sy = 1, sz = 1) {
+        const object = new THREE.Mesh(geo, surface);
+        object.position.set(x, y, z);
+        object.scale.set(sx, sy, sz);
+        parent.add(object);
+        return object;
+      }
+      const ball = (g, m, x, y, z, sx, sy = sx, sz = sx) => mesh(g, cache.ball, m, x, y, z, sx, sy, sz);
+      const box = (g, m, x, y, z, sx, sy, sz) => mesh(g, cache.box, m, x, y, z, sx, sy, sz);
+      function line(g, m, a, b, radius = 0.008) {
+        const start = new THREE.Vector3(...a), end = new THREE.Vector3(...b);
+        const direction = end.clone().sub(start);
+        const center = start.clone().add(end).multiplyScalar(0.5);
+        const segment = mesh(g, cache.tube, m, center.x, center.y, center.z, radius, direction.length(), radius);
+        segment.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+        return segment;
+      }
+      function arc(g, m, points, radius = 0.008) {
+        const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
+        return mesh(g, new THREE.TubeGeometry(curve, Math.max(8, points.length * 3), radius, 5, false), m, 0, 0, 0);
+      }
+      function ring(g, m, radius, thickness, x, y, z, rx = Math.PI / 2) {
+        const object = mesh(g, new THREE.TorusGeometry(radius, thickness, 5, 24), m, x, y, z);
+        object.rotation.x = rx;
+        return object;
+      }
+      // Merge only static siblings, retaining the six animation pivots and head.
+      function batch(group) {
+        const batches = new Map();
+        group.children.slice().forEach(child => {
+          if (!child.isMesh) return;
+          child.updateMatrix();
+          const geometry = child.geometry.index ? child.geometry.toNonIndexed() : child.geometry.clone();
+          geometry.applyMatrix4(child.matrix);
+          if (!batches.has(child.material)) batches.set(child.material, []);
+          batches.get(child.material).push(geometry);
+          group.remove(child);
+        });
+        batches.forEach((geometries, surface) => {
+          const merged = new THREE.BufferGeometry();
+          ['position', 'normal', 'uv'].forEach(name => {
+            const available = geometries.every(geo => geo.attributes[name]);
+            if (!available) return;
+            const size = geometries.reduce((total, geo) => total + geo.attributes[name].array.length, 0);
+            const values = new Float32Array(size);
+            let offset = 0;
+            geometries.forEach(geo => { values.set(geo.attributes[name].array, offset); offset += geo.attributes[name].array.length; });
+            merged.setAttribute(name, new THREE.BufferAttribute(values, geometries[0].attributes[name].itemSize));
+          });
+          merged.computeBoundingSphere();
+          const object = new THREE.Mesh(merged, surface);
+          object.castShadow = true;
+          object.receiveShadow = true;
+          group.add(object);
+          geometries.forEach(geo => geo.dispose());
+        });
+      }
+
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 1.71, 0);
+      charGroup.add(headGroup);
+      ball(headGroup, mat.skin, 0, 0, 0, 0.285, 0.303, 0.262);
+      ball(headGroup, mat.skin, 0, -0.144, 0.039, 0.207, 0.134, 0.19);
+      [-1, 1].forEach(side => {
+        ball(headGroup, mat.skin, side * 0.274, -0.02, 0.005, 0.05, 0.072, 0.044);
+        ball(headGroup, mat.blush, side * 0.289, -0.023, 0.035, 0.023, 0.04, 0.013);
+        ball(headGroup, mat.ivory, side * 0.103, 0.018, 0.243, 0.052, 0.061, 0.023);
+        ball(headGroup, mat.eye, side * 0.101, 0.02, 0.261, 0.026, 0.038, 0.012);
+        ball(headGroup, mat.white, side * 0.101 - 0.008, 0.033, 0.271, 0.008, 0.01, 0.006);
+        ball(headGroup, mat.blush, side * 0.157, -0.063, 0.222, 0.049, 0.022, 0.012);
+        arc(headGroup, mat.hair, [[side * 0.06, 0.093, 0.254], [side * 0.108, 0.104, 0.249], [side * 0.151, 0.086, 0.225]], role === 'elder' ? 0.013 : 0.009);
+      });
+      ball(headGroup, mat.skin, 0, -0.049, 0.272, 0.035, 0.043, 0.044);
+      arc(headGroup, mat.ink, [[-0.043, -0.113, 0.243], [0, -0.125, 0.254], [0.043, -0.113, 0.243]], 0.006);
+
+      if (role !== 'monk') {
+        const cap = new THREE.SphereGeometry(0.292, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.49);
+        mesh(headGroup, cap, mat.hair, 0, 0.052, -0.016, 1, 0.97, 0.95);
+        // Overlapping locks form a readable, asymmetrical fringe.
+        for (let i = 0; i < 5; i++) {
+          const x = (i - 2) * 0.072;
+          const lock = ball(headGroup, i % 3 === 0 ? mat.hairLight : mat.hair, x, 0.164 + Math.abs(x) * 0.17, 0.196, 0.067, 0.104 - i * 0.005, 0.051);
+          lock.rotation.z = -0.37 + i * 0.08;
+        }
+        [-1, 1].forEach(side => {
+          const lock = ball(headGroup, mat.hair, side * 0.247, 0.037, -0.033, 0.06, 0.183, 0.136);
+          lock.rotation.z = side * -0.09;
+        });
+        ball(headGroup, mat.hair, 0, 0.276, -0.106, 0.094, 0.11, 0.105);
+        ring(headGroup, mat.sash, 0.071, 0.015, 0, 0.267, -0.103);
+        if (role === 'elder') {
+          [-1, 1].forEach(side => {
+            const whisker = ball(headGroup, mat.hairLight, side * 0.048, -0.103, 0.258, 0.065, 0.027, 0.031);
+            whisker.rotation.z = side * 0.19;
+          });
+          ball(headGroup, mat.hair, 0, -0.192, 0.19, 0.069, 0.082, 0.043);
+        }
+      } else {
+        ball(headGroup, material(0xc4a78b), 0, 0.193, -0.031, 0.221, 0.109, 0.208);
+      }
+
+      if (hasKatana || role === 'noble') {
+        const hat = new THREE.Group();
+        hat.position.set(0, 0.197, -0.042);
+        hat.rotation.x = -0.17;
+        headGroup.add(hat);
+        mesh(hat, new THREE.ConeGeometry(0.535, 0.219, 32), mat.straw, 0, 0.1095, 0);
+        const underside = mesh(hat, new THREE.CylinderGeometry(0.527, 0.527, 0.012, 32), mat.darkStraw, 0, -0.005, 0);
+        ring(hat, mat.strawLight, 0.532, 0.014, 0, 0, 0);
+        for (let i = 1; i <= 5; i++) {
+          const radius = i * 0.086;
+          ring(hat, i % 2 ? mat.strawLight : mat.darkStraw, radius, 0.004, 0, 0.22 * (1 - radius / 0.535) + 0.003, 0);
+        }
+        for (let i = 0; i < 24; i++) {
+          const angle = i * Math.PI / 12;
+          line(hat, i % 2 ? mat.strawLight : mat.darkStraw, [Math.cos(angle) * 0.027, 0.213, Math.sin(angle) * 0.027], [Math.cos(angle) * 0.522, 0.008, Math.sin(angle) * 0.522], 0.003);
+        }
+        ball(hat, mat.strawLight, 0, 0.217, 0, 0.034, 0.014, 0.034);
+        batch(hat);
+        arc(headGroup, mat.darkStraw, [[-0.287, 0.15, 0.006], [-0.238, -0.182, 0.072], [0, -0.249, 0.093], [0.238, -0.182, 0.072], [0.287, 0.15, 0.006]], 0.006);
+      }
+      batch(headGroup);
+
+      const torso = new THREE.Group();
+      torso.position.y = 1.16;
+      charGroup.add(torso);
+      mesh(torso, new THREE.CylinderGeometry(0.291, 0.328, 0.62, 16), mat.robe, 0, 0, 0, 1, 1, 0.75);
+      ball(torso, mat.skin, 0, 0.342, 0, 0.105, 0.109, 0.1);
+      // Layered wrap collars sit on the front of the garment.
+      const collarL = box(torso, mat.ivory, -0.077, 0.179, 0.211, 0.07, 0.337, 0.035);
+      collarL.rotation.z = 0.51;
+      const collarR = box(torso, mat.ivory, 0.077, 0.179, 0.222, 0.07, 0.337, 0.035);
+      collarR.rotation.z = -0.51;
+      const lapelL = box(torso, mat.robeLight, -0.108, 0.152, 0.217, 0.049, 0.35, 0.036);
+      lapelL.rotation.z = 0.51;
+      const lapelR = box(torso, mat.robeLight, 0.117, 0.144, 0.233, 0.053, 0.367, 0.036);
+      lapelR.rotation.z = -0.51;
+      line(torso, mat.robeDark, [0.18, 0.285, 0.255], [0.002, -0.13, 0.268], 0.006);
+      [-1, 1].forEach(side => {
+        arc(torso, mat.robeLight, [[side * 0.25, 0.21, 0.148], [side * 0.22, 0.028, 0.182], [side * 0.264, -0.17, 0.157]], 0.009);
+      });
+      mesh(torso, new THREE.CylinderGeometry(0.338, 0.338, 0.178, 20), mat.sash, 0, -0.193, 0, 1, 1, 0.77);
+      [-0.256, -0.132].forEach(y => {
+        const trim = ring(torso, mat.thread, 0.338, 0.006, 0, y, 0);
+        trim.scale.y = 0.77;
+      });
+      // Folded obi bow, with two tapered tails visible from behind.
+      [-1, 1].forEach(side => {
+        const bow = ball(torso, mat.sash, side * 0.096, -0.177, -0.284, 0.112, 0.065, 0.051);
+        bow.rotation.z = side * -0.22;
+        const tail = box(torso, mat.sash, side * 0.071, -0.3, -0.272, 0.075, 0.18, 0.035);
+        tail.rotation.z = side * 0.18;
+        line(torso, mat.thread, [side * 0.101, -0.345, -0.294], [side * 0.05, -0.354, -0.294], 0.004);
+      });
+      ball(torso, mat.robeDark, 0, -0.174, -0.306, 0.049, 0.061, 0.035);
+      line(torso, mat.thread, [-0.29, -0.193, 0.139], [0.27, -0.193, 0.157], 0.011);
+      ball(torso, mat.gold, 0.094, -0.193, 0.271, 0.022);
+      // Little stitched family crest on the back and shoulders.
+      ring(torso, mat.thread, 0.051, 0.007, 0, 0.18, -0.225, 0);
+      for (let i = 0; i < 3; i++) {
+        const a = i * Math.PI * 2 / 3;
+        ball(torso, mat.thread, Math.sin(a) * 0.021, 0.18 + Math.cos(a) * 0.021, -0.23, 0.013, 0.02, 0.007);
+      }
+      if (role === 'monk') {
+        const stole = box(torso, mat.straw, -0.154, 0.01, 0.24, 0.115, 0.53, 0.029);
+        stole.rotation.z = -0.11;
+        for (let i = 0; i < 13; i++) {
+          const angle = Math.PI * (0.12 + i / 12 * 0.76);
+          ball(torso, mat.wood, Math.cos(angle) * 0.184, 0.277 - Math.sin(angle) * 0.279, 0.282, 0.022);
+        }
+        line(torso, mat.sash, [0, -0.022, 0.295], [0, -0.123, 0.295], 0.013);
+      }
+      if (role === 'noble' || role === 'ronin') {
+        const strap = box(torso, mat.wood, 0, 0.036, 0.268, 0.034, 0.59, 0.026);
+        strap.rotation.z = -0.63;
+        ball(torso, mat.wood, -0.328, -0.21, 0.071, 0.104, 0.132, 0.068);
+        ball(torso, mat.thread, -0.328, -0.165, 0.131, 0.082, 0.057, 0.013);
+        ball(torso, mat.gold, -0.328, -0.185, 0.147, 0.013);
+      }
+      batch(torso);
+
+      function buildArm(side) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * 0.359, 1.418, 0);
+        pivot.rotation.z = side * 0.105;
+        charGroup.add(pivot);
+        ball(pivot, mat.robe, 0, -0.026, 0, 0.144, 0.148, 0.15);
+        mesh(pivot, new THREE.CylinderGeometry(0.125, 0.17, 0.394, 12), mat.robe, 0, -0.212, 0, 1, 1, 0.88);
+        mesh(pivot, new THREE.CylinderGeometry(0.171, 0.171, 0.032, 12), mat.robeLight, 0, -0.405, 0, 1, 1, 0.88);
+        line(pivot, mat.robeDark, [side * 0.085, -0.09, 0.097], [side * 0.127, -0.379, 0.097], 0.008);
+        line(pivot, mat.thread, [-0.075, -0.406, 0.137], [0.075, -0.406, 0.137], 0.004);
+        ball(pivot, mat.skin, 0, -0.445, 0, 0.065, 0.062, 0.055);
+        ball(pivot, mat.skin, 0, -0.508, 0.018, 0.071, 0.081, 0.055);
+        ball(pivot, mat.skin, side * -0.061, -0.491, 0.039, 0.029, 0.039, 0.031);
+        for (let i = 0; i < 3; i++) line(pivot, mat.blush, [(i - 1) * 0.027, -0.542, 0.061], [(i - 1) * 0.027, -0.565, 0.051], 0.0025);
+        batch(pivot);
+        return pivot;
+      }
+      const armL = buildArm(-1), armR = buildArm(1);
+
+      function buildLeg(side) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * 0.168, 0.895, 0);
+        charGroup.add(pivot);
+        const pleats = new THREE.CylinderGeometry(0.153, 0.197, 0.616, 24, 1);
+        const positions = pleats.attributes.position;
+        for (let i = 0; i < positions.count; i++) {
+          const x = positions.getX(i), z = positions.getZ(i);
+          const angle = Math.atan2(z, x);
+          const inset = 1 + Math.cos(angle * 12) * 0.058;
+          positions.setXZ ? positions.setXZ(i, x * inset, z * inset * 1.03) : positions.setXYZ(i, x * inset, positions.getY(i), z * inset * 1.03);
+        }
+        pleats.computeVertexNormals();
+        mesh(pivot, pleats, mat.hakama, 0, -0.302, 0);
+        [-0.105, 0, 0.105].forEach(x => {
+          line(pivot, mat.fold, [x * 0.78, -0.08, 0.139], [x, -0.599, 0.174], 0.008);
+          line(pivot, mat.fold, [x * 0.78, -0.08, -0.139], [x, -0.599, -0.174], 0.006);
+        });
+        ball(pivot, mat.ivory, 0, -0.686, 0.015, 0.083, 0.115, 0.084);
+        ball(pivot, mat.ivory, 0, -0.749, 0.065, 0.098, 0.065, 0.169);
+        const sole = box(pivot, mat.wood, 0, -0.808, 0.059, 0.221, 0.043, 0.356);
+        box(pivot, mat.darkStraw, 0, -0.782, 0.059, 0.221, 0.014, 0.35);
+        [-0.055, 0.161].forEach(z => box(pivot, mat.wood, 0, -0.853, z, 0.191, 0.048, 0.049));
+        arc(pivot, mat.sash, [[-0.088, -0.769, -0.011], [-0.068, -0.718, 0.035], [0, -0.726, 0.164], [0.068, -0.718, 0.035], [0.088, -0.769, -0.011]], 0.013);
+        line(pivot, mat.wood, [side * -0.026, -0.744, 0.179], [side * -0.026, -0.738, 0.217], 0.005);
+        // A few visible straw stitches on the sandal edge.
+        for (let i = 0; i < 5; i++) line(pivot, mat.thread, [-0.112, -0.777, -0.064 + i * 0.061], [-0.112, -0.792, -0.049 + i * 0.061], 0.003);
+        batch(pivot);
+        return pivot;
+      }
+      const legL = buildLeg(-1), legR = buildLeg(1);
+
+      let katanaGroup = null;
+      if (hasKatana) {
+        katanaGroup = new THREE.Group();
+        katanaGroup.position.set(0.414, 0.99, -0.027);
+        katanaGroup.rotation.set(0.15, 0.1, -0.43);
+        charGroup.add(katanaGroup);
+        arc(katanaGroup, mat.lacquer, [[0, 0.151, 0], [0, -0.1, 0], [0.016, -0.351, 0], [0.06, -0.598, 0]], 0.033);
+        ball(katanaGroup, mat.gold, 0.058, -0.596, 0, 0.035, 0.045, 0.035);
+        mesh(katanaGroup, new THREE.CylinderGeometry(0.093, 0.093, 0.024, 12), mat.gold, 0, 0.166, 0, 1, 1, 0.72);
+        mesh(katanaGroup, new THREE.CylinderGeometry(0.029, 0.03, 0.248, 10), mat.ivory, 0, 0.304, 0);
+        for (let i = 0; i < 7; i++) {
+          const y = 0.192 + i * 0.034;
+          line(katanaGroup, mat.ink, [-0.027, y, 0.018], [0.027, y + 0.028, 0.018], 0.006);
+          line(katanaGroup, mat.ink, [0.027, y, 0.023], [-0.027, y + 0.028, 0.023], 0.006);
+        }
+        mesh(katanaGroup, new THREE.CylinderGeometry(0.033, 0.033, 0.023, 12), mat.gold, 0, 0.435, 0);
+        ring(katanaGroup, mat.sash, 0.04, 0.009, 0, 0.077, 0);
+        arc(katanaGroup, mat.sash, [[0.01, 0.087, 0.036], [0.094, 0.042, 0.047], [0.094, -0.088, 0.055]], 0.009);
+        line(katanaGroup, mat.sash, [0.091, -0.065, 0.055], [0.096, -0.145, 0.055], 0.015);
+        batch(katanaGroup);
+      }
+      return { group: charGroup, legL, legR, armL, armR, katana: katanaGroup, headGroup };
+    }
+
+    // Spawn Realistic Human Samurai Player
+    const playerComponents = buildRealisticHumanoid('samurai', '#22303c', true);
+    const playerGroup = playerComponents.group;
+    playerGroup.position.set(0, 0, 19);
+    scene.add(playerGroup);
+
+    const PLAYER = {
+      pos: playerGroup.position,
+      group: playerGroup,
+      legL: playerComponents.legL,
+      legR: playerComponents.legR,
+      armL: playerComponents.armL,
+      armR: playerComponents.armR,
+      katana: playerComponents.katana,
+      speed: 7.5,
+      velocity: new THREE.Vector3(),
+      isMoving: false,
+      walkCycle: 0
+    };
+
+    /* ==========================================================================
+       12. THIRD PERSON CAMERA CONTROLLER
+       ========================================================================== */
+    const CAM = {
+      distance: 18.5,
+      height: 4.8,
+      azimuth: .38,
+      elevation: .52,
+      targetAzimuth: .38,
+      targetElevation: .52,
+      isMouseDown: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    window.addEventListener('mousedown', (e) => {
+      if (e.target.closest('#hud-top') || e.target.closest('#hotbar-container') || e.target.closest('.modal-box') || e.target.closest('#decor-toolbar') || e.target.closest('#start-overlay')) {
+        return;
+      }
+      CAM.isMouseDown = true;
+      CAM.lastMouseX = e.clientX;
+      CAM.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!CAM.isMouseDown) return;
+      const dx = e.clientX - CAM.lastMouseX;
+      const dy = e.clientY - CAM.lastMouseY;
+      CAM.targetAzimuth -= dx * 0.006;
+      CAM.targetElevation += dy * 0.004;
+      CAM.targetElevation = Math.max(0.1, Math.min(1.2, CAM.targetElevation));
+      CAM.lastMouseX = e.clientX;
+      CAM.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => { CAM.isMouseDown = false; });
+    window.addEventListener('wheel', (e) => {
+      CAM.distance += e.deltaY * 0.005;
+      CAM.distance = Math.max(4.5, Math.min(32, CAM.distance));
+    }, { passive: true });
+
+    /* ==========================================================================
+       13. INPUT HANDLING
+       ========================================================================== */
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
+      if(!hasEntered)return;
+      keys[e.key.toLowerCase()] = true;
+      if(e.repeat)return;
+      if (['1','2','3','4','5'].includes(e.key)) selectHotbar(parseInt(e.key));
+      if (e.key.toLowerCase() === 'b') toggleDecorMode();
+      if (e.key.toLowerCase() === 'f') performKata();
+      if (e.key.toLowerCase() === 'e' || e.key === ' ') handleInteraction();
+      if (e.key.toLowerCase() === 'r' && STATE.isDecorMode) {
+        STATE.decorRotation = (STATE.decorRotation + Math.PI / 4) % (Math.PI * 2);
+        showToast('Rotated decoration 45°', '🔄');
+      }
+      if (e.key.toLowerCase() === 'x' && STATE.isDecorMode) removeNearbyDecor();
+    });
+
+    window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+    function selectHotbar(slotNum) {
+      STATE.selectedSlot = slotNum;
+      document.querySelectorAll('.hotbar-slot').forEach(el => el.classList.remove('selected'));
+      const activeEl = document.querySelector(`.hotbar-slot[data-slot="${slotNum}"]`);
+      if (activeEl) activeEl.classList.add('selected');
+    }
+
+    /* ==========================================================================
+       14. REALISTIC HUMAN CUSTOMERS SYSTEM (DETAILED ANATOMY)
+       ========================================================================== */
+    const CUSTOMERS = [];
+    const guestArchetypes = [
+      { role: 'Zen Monk (僧侶)', type: 'monk', robeHex: '#855e3e', craving: 'matcha' },
+      { role: 'Ronin Swordsman (浪人)', type: 'ronin', robeHex: '#323438', craving: 'sencha' },
+      { role: 'Noble Traveler (旅人)', type: 'noble', robeHex: '#6a365b', craving: 'genmaicha' },
+      { role: 'Village Elder (長老)', type: 'elder', robeHex: '#2d523e', craving: 'sakuramint' }
+    ];
+
+    class Customer {
+      constructor(archetype) {
+        this.arch = archetype;
+        this.state = 'entering';
+        this.assignedSeat = null;
+        this.bubbleEl = null;
+
+        // Realistic Anatomical Human NPC Model
+        const npcComp = buildRealisticHumanoid(archetype.type, archetype.robeHex, false);
+        normalizeModelColors(npcComp.group);
+        this.group = npcComp.group;
+        this.rig = npcComp;
+        this.walkTime = 0;
+        this.group.position.set((Math.random() - 0.5) * 4, 0, 26);
+        scene.add(this.group);
+
+        const openSeat = seatPositions.find(s => !s.occupied);
+        if (openSeat) {
+          openSeat.occupied = true;
+          this.assignedSeat = openSeat;
+        }
+
+        this.bubbleEl = document.createElement('div');
+        this.bubbleEl.className = 'speech-bubble';
+        this.bubbleEl.innerHTML = `<strong>${this.arch.role}</strong><br>Craving: ${this.arch.craving.toUpperCase()} 🍵`;
+        document.getElementById('bubble-container').appendChild(this.bubbleEl);
+      }
+
+      update(delta) {
+        this.walkTime+=delta*8;
+        const moving=this.state==='entering'||this.state==='leaving';
+        const swing=moving?Math.sin(this.walkTime)*.32:0;
+        this.rig.legL.rotation.x=swing;this.rig.legR.rotation.x=-swing;
+        this.rig.armL.rotation.x=-swing*.65;this.rig.armR.rotation.x=swing*.65;
+        if (!this.assignedSeat) this.state = 'leaving';
+
+        if (this.bubbleEl) {
+          const headPos = this.group.position.clone().add(new THREE.Vector3(0, 2.1, 0));
+          headPos.project(camera);
+          if (headPos.z < 1) {
+            const x = (headPos.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(headPos.y * 0.5) + 0.5) * window.innerHeight;
+            this.bubbleEl.style.left = `${x}px`;
+            this.bubbleEl.style.top = `${y}px`;
+            this.bubbleEl.style.display = (this.state === 'waiting_order') ? 'block' : 'none';
+          } else {
+            this.bubbleEl.style.display = 'none';
+          }
+        }
+
+        if (this.state === 'entering' && this.assignedSeat) {
+          const target = new THREE.Vector3(this.assignedSeat.x, 0, this.assignedSeat.z);
+          const dir = target.clone().sub(this.group.position);
+          if (dir.length() > 0.3) {
+            dir.normalize();
+            this.group.position.addScaledVector(dir, delta * 3.2);
+            this.group.rotation.y = Math.atan2(dir.x, dir.z);
+          } else {
+            this.group.position.copy(target);
+            this.group.position.y = .2;
+            this.state = 'waiting_order';
+            audio.playClack();
+            showToast(`${this.arch.role} sat at the Chaya cushions!`, '🎎');
+          }
+        } else if (this.state === 'leaving') {
+          const exitTarget = new THREE.Vector3(0, 0, 30);
+          const dir = exitTarget.clone().sub(this.group.position);
+          if (dir.length() > 0.5) {
+            dir.normalize();
+            this.group.position.addScaledVector(dir, delta * 3.2);
+            this.group.rotation.y = Math.atan2(dir.x, dir.z);
+          } else {
+            this.destroy();
+          }
+        }
+      }
+
+      serveTea() {
+        if (this.state !== 'waiting_order') return false;
+        this.state = 'sipping';
+        audio.playCoin();
+        const earned = Math.floor(Math.random() * 15) + 30;
+        STATE.mon += earned;
+        STATE.zen += 3;
+        updateHUD();
+        showToast(`Served ${this.arch.role}! +${earned} Mon, +3 Zen`, '🪙');
+
+        setTimeout(() => {
+          if (this.assignedSeat) this.assignedSeat.occupied = false;
+          this.state = 'leaving';
+        }, 3200);
+        return true;
+      }
+
+      destroy() {
+        if (this.assignedSeat) this.assignedSeat.occupied = false;
+        if (this.bubbleEl && this.bubbleEl.parentNode) this.bubbleEl.parentNode.removeChild(this.bubbleEl);
+        scene.remove(this.group);
+        const idx = CUSTOMERS.indexOf(this);
+        if (idx !== -1) CUSTOMERS.splice(idx, 1);
+      }
+    }
+
+    setInterval(() => {
+      const openSeat = seatPositions.find(s => !s.occupied);
+      if (openSeat && CUSTOMERS.length < 3) {
+        const arch = guestArchetypes[Math.floor(Math.random() * guestArchetypes.length)];
+        CUSTOMERS.push(new Customer(arch));
+      }
+    }, 14000);
+
+    setTimeout(() => {
+      CUSTOMERS.push(new Customer(guestArchetypes[0]));
+    }, 2000);
+
+    /* ==========================================================================
+       15. HIGH-POLY DECORATION MESHES (32 SEGMENTS)
+       ========================================================================== */
+    const PLACED_DECORATIONS = [];
+    let decorGhostMesh = null;
+
+    // Placeable objects use the same hand-built forms and materials as the estate.
+    // Opaque pieces merge into a handful of meshes; no extra lights are needed.
+    function buildDecorMesh(key) {
+      const g=new THREE.Group();g.name='Handcrafted '+key;
+      const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:.88,...extra});
+      const m={stone:material(0x9da38f,{flatShading:true}),stoneDark:material(0x788879),
+        moss:material(0x778958),cedar:material(0x9e7150),wood:material(0x654e3e),
+        bark:material(0x6c5a45,{flatShading:true}),cream:material(0xe6d9b1),
+        indigo:material(0x4c6b73),celadon:material(0x799c91,{roughness:.34}),
+        rope:material(0xb8a077),soil:material(0x645d47),
+        leaf:material(0x69835a,{flatShading:true}),leafLight:material(0x8c9e65,{flatShading:true}),leafDark:material(0x506d50,{flatShading:true}),
+        bamboo:material(0x9ba577),bambooDark:material(0x6a8258),
+        water:material(0x76b4b0,{roughness:.18,metalness:.14}),
+        glow:material(0xffd9a0,{emissive:0xe9a857,emissiveIntensity:.7,roughness:.7})};
+      const box=new THREE.BoxGeometry(1,1,1),sphere=new THREE.IcosahedronGeometry(1,1);
+      const mesh=(geo,mat,x=0,y=0,z=0,sx=1,sy=1,sz=1)=>gardenMesh(g,geo,mat,x,y,z,sx,sy,sz);
+      const block=(mat,x,y,z,w,h,d)=>mesh(box,mat,x,y,z,w,h,d);
+      const branch=(a,b,r1,r2,mat=m.wood)=>gardenBranch(g,a,b,r1,r2,mat);
+      const tube=(points,r,mat,segments=24)=>mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p))),segments,r,6,false),mat);
+      const lathe=(points,mat,x=0,y=0,z=0,segments=28)=>mesh(new THREE.LatheGeometry(points.map(p=>new THREE.Vector2(...p)),segments),mat,x,y,z);
+      const ring=(r,t,mat,x,y,z)=>{const o=mesh(new THREE.TorusGeometry(r,t,6,28),mat,x,y,z);o.rotation.x=Math.PI/2;return o;};
+      if(key==='lantern') {
+        // Layered granite footing and a tapered, gently faceted shaft.
+        mesh(new THREE.CylinderGeometry(.43,.5,.13,8),m.stone,0,.065,0);
+        mesh(new THREE.CylinderGeometry(.34,.42,.2,8),m.stone,0,.22,0);
+        lathe([[.26,0],[.29,.06],[.2,.12],[.165,.25],[.135,1.03],[.23,1.08],[.24,1.18]],m.stone,0,.31,0,8);
+        mesh(new THREE.CylinderGeometry(.39,.27,.12,8),m.stoneDark,0,1.53,0);
+        block(m.stone,0,1.64,0,.77,.11,.77);
+        block(m.stoneDark,0,1.705,0,.62,.02,.62);
+        // Four open windows surround a recessed amber candle.
+        for(const x of [-.3,.3])for(const z of [-.3,.3])block(m.stone,x,2.03,z,.11,.67,.11);
+        for(const z of [-.32,.32]) {
+          block(m.stone,0,1.79,z,.55,.12,.1);block(m.stone,0,2.32,z,.68,.1,.12);
+          block(m.stoneDark,0,2.055,z,.035,.43,.035);
+        }
+        for(const x of [-.32,.32]){block(m.stone,x,1.79,0,.1,.12,.55);block(m.stone,x,2.32,0,.12,.1,.68);}
+        mesh(new THREE.CylinderGeometry(.095,.11,.22,16),m.cream,0,1.835,0);
+        mesh(sphere,m.glow,0,2.015,0,.062,.12,.062);
+        // Swept four-sided stone roof, with a deep cut line under the eaves.
+        const roof=lathe([[.1,0],[.66,0],[.72,.045],[.65,.105],[.45,.15],[.22,.35],[.11,.38],[0,.38]],m.stone,0,2.38,0,4);roof.rotation.y=Math.PI/4;
+        const rim=lathe([[.67,0],[.70,.035],[.67,.057]],m.stoneDark,0,2.372,0,4);rim.rotation.y=Math.PI/4;
+        mesh(new THREE.CylinderGeometry(.12,.17,.1,12),m.stone,0,2.82,0);
+        mesh(sphere,m.stone,0,2.99,0,.12,.19,.12);
+        mesh(sphere,m.moss,-.24,.31,.12,.15,.035,.19);
+        mesh(sphere,m.moss,-.29,2.52,-.22,.19,.025,.13);
+      } else if(key==='torii') {
+        // Warm cedar posts retain a subtle vermilion hue without dominating the garden.
+        const lacquer=material(0xa76a51,{roughness:.72}),cap=material(0x415f63);
+        for(const s of [-1,1]) {
+          const post=mesh(new THREE.CylinderGeometry(.17,.22,3.67,12),lacquer,s*1.45,1.835,0);post.rotation.z=s*.032;
+          mesh(new THREE.CylinderGeometry(.26,.29,.19,8),m.stone,s*1.5,.095,0);
+          mesh(new THREE.CylinderGeometry(.22,.22,.35,12),m.wood,s*1.5,.35,0);
+          ring(.205,.018,m.rope,s*1.48,.58,0);
+          block(m.wood,s*1.45,3.35,0,.4,.085,.4);
+        }
+        // A continuous upturned lintel is extruded, rather than built from boxes.
+        function lintel(y,thickness,depth,mat) {
+          const shape=new THREE.Shape();shape.moveTo(-2.12,.17);shape.quadraticCurveTo(0,-.22,2.12,.17);shape.lineTo(2.08,.17+thickness);shape.quadraticCurveTo(0,-.22+thickness,-2.08,.17+thickness);shape.closePath();
+          const geo=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelThickness:.018,bevelSize:.018,bevelSegments:1,curveSegments:18});
+          return mesh(geo,mat,0,y,-depth/2);
+        }
+        lintel(3.56,.24,.43,lacquer);lintel(3.80,.065,.49,cap);
+        block(lacquer,0,3.08,0,3.65,.18,.22);
+        block(lacquer,0,3.39,0,.16,.48,.23);
+        block(m.wood,0,3.49,.26,.42,.67,.065);
+        block(m.cedar,0,3.49,.301,.35,.57,.025);
+        const blossom=new THREE.CircleGeometry(.056,12);for(let i=0;i<5;i++){const a=i*Math.PI*2/5;mesh(blossom,m.cream,Math.cos(a)*.063,3.49+Math.sin(a)*.063,.321);}
+        const ropePoints=[];for(let i=0;i<=16;i++){const x=-1.43+i*2.86/16;ropePoints.push([x,2.81+.21*Math.pow(x/1.43,2),.18]);}tube(ropePoints,.032,m.rope);
+        for(const x of [-1.35,1.35]){ring(.2,.035,m.rope,x,3.01,0);for(let j=0;j<5;j++)branch([x+(j-2)*.023,2.98,.16],[x+(j-2)*.035,2.7,.16],.013,.006,m.rope);}
+        for(const x of [-.84,-.28,.28,.84]) {
+          // Folded washi shide pendants hang in distinct zigzags.
+          let px=x,py=2.83+.21*Math.pow(x/1.43,2);
+          for(let j=0;j<4;j++){const next=px+(j%2?.11:-.11);const center=[(px+next)/2,py-.055,.19];const paper=block(m.cream,...center,.15,.11,.016);paper.rotation.z=j%2?.62:-.62;px=next;py-=.085;}
+        }
+      } else if(key==='bonsai') {
+        // An open glazed oval planter, with lip, drainage feet and visible soil.
+        const planter=lathe([[.38,0],[.46,.05],[.56,.24],[.58,.27],[.58,.32],[.53,.34],[.51,.28],[.46,.10],[.38,.065]],m.celadon,0,.09,0);planter.scale.set(1.3,1,.9);
+        const soil=mesh(new THREE.CylinderGeometry(.505,.49,.035,28),m.soil,0,.365,0,1.3,1,.9);
+        for(const x of [-.38,.38])for(const z of [-.22,.22])block(m.celadon,x,.065,z,.19,.13,.15);
+        const joints=[[-.15,.36,0],[-.28,.65,.025],[-.08,.86,-.02],[.02,1.15,.04],[.22,1.41,0],[.1,1.66,.01]];
+        for(let i=0;i<joints.length-1;i++)branch(joints[i],joints[i+1],.14-i*.022,.12-i*.022,m.bark);
+        for(let i=0;i<5;i++){const a=i*1.256;branch([-.15,.39,0],[-.15+Math.cos(a)*.28,.374,Math.sin(a)*.21],.061,.01,m.bark);}
+        const pads=[[-.56,.91,.08,.38], [.44,1.21,.06,.38],[-.31,1.37,-.1,.31],[.13,1.7,0,.38],[.16,1.18,-.36,.29]];
+        pads.forEach(([x,y,z,s],i)=>{
+          const origin=i<2?joints[2]:joints[3];branch(origin,[x,y-.04,z],.057,.017,m.bark);
+          for(let j=0;j<8;j++){const a=j*2.4,r=j===0?0:s*.6;mesh(sphere,j%3===0?m.leafLight:j%3===1?m.leaf:m.leafDark,x+Math.cos(a)*r,y+(j%3)*.022,z+Math.sin(a)*r*.7,s*.62,.13,s*.54);}
+          branch([x-.16,y-.08,z],[x+.14,y-.05,z],.024,.009,m.bark);
+        });
+        for(let i=0;i<6;i++){const a=i*2.4;mesh(sphere,m.moss,Math.cos(a)*.32,.39,Math.sin(a)*.22,.17,.035,.13);}
+        mesh(sphere,m.stone,.37,.405,.15,.1,.065,.13);
+      } else if(key==='fountain') {
+        // The basin has a thick carved rim and a real recessed water surface.
+        lathe([[.45,0],[.55,.05],[.65,.29],[.64,.46],[.6,.51],[.5,.51],[.47,.43],[.43,.15],[0,.12]],m.stone,0,.04,0,24);
+        ring(.585,.018,m.stoneDark,0,.53,0);
+        const water=mesh(new THREE.CircleGeometry(.472,40),m.water,0,.41,0);water.rotation.x=-Math.PI/2;water.castShadow=false;
+        for(let i=0;i<8;i++){const a=i*.785;mesh(sphere,i%3?m.stone:m.stoneDark,Math.cos(a)*.7,.08,Math.sin(a)*.66,.16,.1,.13);}
+        for(const x of [-.54,-.85]){
+          mesh(new THREE.CylinderGeometry(.06,.068,1.22,10),m.bamboo,x,.66,-.17);
+          for(const y of [.27,.61,.95,1.22])mesh(new THREE.CylinderGeometry(.071,.071,.035,10),m.bambooDark,x,y,-.17);
+        }
+        const a=[-.7,1.12,-.17],b=[-.16,.91,0];branch(a,b,.095,.086,m.bamboo);
+        const spoutEnd=mesh(new THREE.CylinderGeometry(.067,.067,.012,14),m.wood,...b);spoutEnd.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(...b).sub(new THREE.Vector3(...a)).normalize());
+        // A pale thread of flowing water lands in concentric ripples.
+        tube([[-.14,.905,.005],[-.12,.72,.03],[-.11,.42,.04]],.013,m.water,14);
+        for(const r of [.06,.13,.2])ring(r,.007,m.cream,-.11,.415,.04).castShadow=false;
+        for(let i=0;i<4;i++)ring(.083,.012,m.rope,-.69,1.07+i*.02,-.17);
+        mesh(sphere,m.moss,.37,.48,-.2,.14,.035,.11);
+        // A small wooden ladle rests across the lip.
+        branch([.29,.58,-.48],[.29,.58,.44],.022,.025,m.cedar);
+        lathe([[0,0],[.09,0],[.13,.035],[.135,.15],[.115,.15],[.11,.04],[0,.027]],m.cedar,.29,.58,.35,18);
+      } else if(key==='zen_rock') {
+        const rand=gardenRandom(1048);
+        const rockGeo=new THREE.IcosahedronGeometry(1,2),pos=rockGeo.attributes.position;
+        for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);const noise=1+.055*Math.sin(x*13+y*5+z*7);pos.setXYZ(i,x*noise,Math.max(-.67,y*noise),z*noise);}rockGeo.computeVertexNormals();
+        const rock=mesh(rockGeo,m.stone,0,.61,0,1.04,.9,.84);rock.rotation.set(.04,.47,-.1);
+        for(let i=0;i<10;i++){const a=i*2.4,r=.1+rand()*.46;mesh(sphere,m.moss,Math.cos(a)*r-.09,1.36-r*.19,Math.sin(a)*r*.7,.19+rand()*.12,.038,.15+rand()*.09);}
+        mesh(sphere,m.stoneDark,.91,.16,.15,.38,.29,.31);mesh(sphere,m.stone,-.75,.12,.53,.28,.2,.24);
+        for(let i=0;i<6;i++){const a=i*1.04;mesh(sphere,m.moss,Math.cos(a)*.84,.055,Math.sin(a)*.71,.2,.035,.14);}
+      } else if(key==='sakura_tree') {
+        const tree=createSakuraTree(0,0);tree.name='Handcrafted sakura';batchGardenStatics(tree);normalizeModelColors(tree);return tree;
+      } else if(key==='tatami_bench') {
+        // An airy mortise-and-tenon frame carries cedar slats and a woven cushion.
+        for(const x of [-.87,.87]) {
+          for(const z of [-.3,.3])block(m.wood,x,.245,z,.14,.49,.14);
+          block(m.cedar,x,.22,0,.11,.095,.72);
+          block(m.cedar,x,.42,0,.15,.12,.93);
+        }
+        for(const z of [-.36,.36])block(m.wood,0,.37,z,2.24,.13,.1);
+        block(m.wood,0,.19,0,1.88,.1,.1);
+        for(let i=0;i<7;i++)block(i%3===0?m.cedar:m.wood,-.99+i*.33,.515,0,.318,.09,.96);
+        block(m.cream,0,.586,0,1.92,.07,.81);
+        for(const x of [-.94,.94])block(m.indigo,x,.627,0,.09,.02,.82);
+        for(let x=-.83;x<.86;x+=.04)block(m.rope,x,.626,0,.01,.004,.78);
+        for(const z of [-.385,.385])for(let x=-.85;x<.86;x+=.065)block(m.indigo,x,.633,z,.024,.007,.016);
+        // A folded indigo hand towel rests at one end.
+        block(m.indigo,.65,.666,.045,.37,.052,.52);
+        for(const z of [-.16,.25])block(m.cream,.65,.695,z,.32,.007,.023);
+        for(const x of [-1.02,1.02])for(const z of [-.34,.34])mesh(new THREE.CylinderGeometry(.019,.019,.014,8),m.cream,x,.568,z);
+      }
+      batchGardenStatics(g);
+      normalizeModelColors(g);
+      return g;
+    }
+
+    function toggleDecorMode() {
+      STATE.isDecorMode = !STATE.isDecorMode;
+      const toolbar = document.getElementById('decor-toolbar');
+      const btn = document.getElementById('btn-toggle-decor');
+
+      if (STATE.isDecorMode) {
+        toolbar.style.display = 'flex';
+        btn.classList.add('active');
+        renderDecorCatalog();
+        showToast('Entered Zen Decoration Mode [B]', '🎋');
+      } else {
+        toolbar.style.display = 'none';
+        btn.classList.remove('active');
+        if (decorGhostMesh) {
+          scene.remove(decorGhostMesh);
+          decorGhostMesh = null;
+        }
+        showToast('Exited Decoration Mode', '🍃');
+      }
+    }
+
+    function renderDecorCatalog() {
+      const container = document.getElementById('decor-items-list');
+      container.innerHTML = '';
+      Object.keys(DECOR_CATALOG).forEach(key => {
+        const item = DECOR_CATALOG[key];
+        const owned = STATE.inventory.decorations[key] || 0;
+        const div = document.createElement('div');
+        div.className = `decor-item ${STATE.selectedDecorKey === key ? 'active' : ''}`;
+        div.innerHTML = `
+          <span>${item.icon} ${item.name}</span>
+          <span style="color:${owned > 0 ? '#63c996' : '#f5846b'}; font-weight:bold;">x${owned}</span>
+        `;
+        div.onclick = () => {
+          STATE.selectedDecorKey = key;
+          renderDecorCatalog();
+        };
+        container.appendChild(div);
+      });
+    }
+
+    function updateDecorGhost() {
+      if (!STATE.isDecorMode) return;
+      if (!decorGhostMesh || decorGhostMesh.userData.key !== STATE.selectedDecorKey) {
+        if (decorGhostMesh) scene.remove(decorGhostMesh);
+        decorGhostMesh = buildDecorMesh(STATE.selectedDecorKey);
+        decorGhostMesh.userData.key = STATE.selectedDecorKey;
+        decorGhostMesh.traverse(child => {
+          if (child.isMesh) {
+            child.material = child.material.clone();
+            child.material.transparent = true;
+            child.material.opacity = 0.55;
+          }
+        });
+        scene.add(decorGhostMesh);
+      }
+
+      const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), playerGroup.rotation.y);
+      const targetPos = playerGroup.position.clone().add(forward.multiplyScalar(2.8));
+      targetPos.x = Math.round(targetPos.x * 2) / 2;
+      targetPos.z = Math.round(targetPos.z * 2) / 2;
+      targetPos.y = 0;
+
+      decorGhostMesh.position.copy(targetPos);
+      decorGhostMesh.rotation.y = STATE.decorRotation;
+    }
+
+    function placeDecor() {
+      if (!STATE.isDecorMode || !decorGhostMesh) return;
+      const key = STATE.selectedDecorKey;
+      const count = STATE.inventory.decorations[key] || 0;
+      if (count <= 0) {
+        showToast(`No ${DECOR_CATALOG[key].name} left in inventory! Buy at Merchant.`, '⚠️');
+        return;
+      }
+
+      const realMesh = buildDecorMesh(key);
+      realMesh.position.copy(decorGhostMesh.position);
+      realMesh.rotation.y = decorGhostMesh.rotation.y;
+      scene.add(realMesh);
+
+      PLACED_DECORATIONS.push({ key: key, mesh: realMesh, pos: realMesh.position.clone() });
+      STATE.inventory.decorations[key]--;
+      STATE.zen += 4;
+      updateHUD();
+      renderDecorCatalog();
+      audio.playClack();
+      showToast(`Placed ${DECOR_CATALOG[key].name}! +4 Zen`, '🌸');
+    }
+
+    function removeNearbyDecor() {
+      const pPos = playerGroup.position;
+      let nearest = null;
+      let minDist = 3.2;
+
+      PLACED_DECORATIONS.forEach((d, idx) => {
+        const dist = d.mesh.position.distanceTo(pPos);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = { decor: d, index: idx };
+        }
+      });
+
+      if (nearest) {
+        scene.remove(nearest.decor.mesh);
+        STATE.inventory.decorations[nearest.decor.key] = (STATE.inventory.decorations[nearest.decor.key] || 0) + 1;
+        PLACED_DECORATIONS.splice(nearest.index, 1);
+        updateHUD();
+        renderDecorCatalog();
+        audio.playClack();
+        showToast(`Stored ${DECOR_CATALOG[nearest.decor.key].name} back into inventory`, '📦');
+      } else {
+        showToast('No placed decoration nearby to remove', 'ℹ️');
+      }
+    }
+
+    window.addEventListener('click', (e) => {
+      if (STATE.isDecorMode) {
+        if (e.target.closest('#hud-top') || e.target.closest('#decor-toolbar') || e.target.closest('.modal-box')) return;
+        placeDecor();
+      }
+    });
+
+    /* ==========================================================================
+       16. INTERACTION SYSTEM
+       ========================================================================== */
+    function checkInteractions() {
+      const prompt = document.getElementById('prompt-interaction');
+      const pPos = playerGroup.position;
+
+      // Update Zone Indicator HUD
+      if (pPos.z > 6.0) {
+        STATE.currentZone = 'Front Courtyard & Chaya';
+      } else if (pPos.z > -5.5) {
+        STATE.currentZone = 'Samurai Residence (私邸)';
+      } else {
+        STATE.currentZone = 'Backyard Tea Farm (奥庭園)';
+      }
+      document.getElementById('hud-zone').textContent = STATE.currentZone;
+
+      // Check Backyard Farm Crops
+      let nearCrop = null;
+      CROPS.forEach(c => {
+        if (c.worldPos.distanceTo(pPos) < 2.2) nearCrop = c;
+      });
+
+      if (nearCrop) {
+        prompt.style.display = 'block';
+        if (nearCrop.state === 'empty') {
+          prompt.textContent = 'Press [E] to Plant Seed in Soil Plot';
+        } else if (nearCrop.state === 'seeded' && !nearCrop.watered) {
+          prompt.textContent = 'Press [E] with Water Can [1] to Water';
+        } else if (nearCrop.state === 'ripe') {
+          prompt.textContent = 'Press [E] to Harvest Tea Leaves 🍃';
+        } else {
+          prompt.textContent = `Crop Growing (${Math.floor(nearCrop.growth)}%)`;
+        }
+        return;
+      }
+
+      // Check Tea House Hearth Kettle
+      const hearthPos = new THREE.Vector3(0, 0.8, 10.5);
+      if (hearthPos.distanceTo(pPos) < 2.8) {
+        prompt.style.display = 'block';
+        prompt.textContent = 'Press [E] to Brew Fresh Tea at Chaya Hearth 🍵';
+        return;
+      }
+
+      // Check Customers
+      let nearCustomer = null;
+      CUSTOMERS.forEach(cust => {
+        if (cust.state === 'waiting_order' && cust.group.position.distanceTo(pPos) < 2.8) {
+          nearCustomer = cust;
+        }
+      });
+
+      if (nearCustomer) {
+        prompt.style.display = 'block';
+        prompt.textContent = `Press [E] to Serve ${nearCustomer.arch.role} with Tea [5] 🍵`;
+        return;
+      }
+
+      prompt.style.display = 'none';
+    }
+
+    function handleInteraction() {
+      const pPos = playerGroup.position;
+
+      // 1. Backyard Farm
+      let nearCrop = null;
+      CROPS.forEach(c => {
+        if (c.worldPos.distanceTo(pPos) < 2.2) nearCrop = c;
+      });
+
+      if (nearCrop) {
+        if (nearCrop.state === 'empty') {
+          if (STATE.selectedSlot === 2 && STATE.inventory.matchaSeeds > 0) {
+            STATE.inventory.matchaSeeds--;
+            plantCrop(nearCrop, 'matcha');
+          } else if (STATE.selectedSlot === 3 && STATE.inventory.senchaSeeds > 0) {
+            STATE.inventory.senchaSeeds--;
+            plantCrop(nearCrop, 'sencha');
+          } else {
+            showToast('Select Matcha Seed [2] or Sencha Seed [3] to sow!', '🌱');
+          }
+        } else if (nearCrop.state === 'seeded') {
+          if (STATE.selectedSlot === 1 && STATE.inventory.water > 0) {
+            waterCrop(nearCrop);
+          }
+        } else if (nearCrop.state === 'ripe') {
+          harvestCrop(nearCrop);
+        }
+        updateHUD();
+        return;
+      }
+
+      // 2. Chaya Hearth Brewing
+      const hearthPos = new THREE.Vector3(0, 0.8, 10.5);
+      if (hearthPos.distanceTo(pPos) < 2.8) {
+        openBrewModal();
+        return;
+      }
+
+      // 3. Serve Customer
+      let nearCustomer = null;
+      CUSTOMERS.forEach(cust => {
+        if (cust.state === 'waiting_order' && cust.group.position.distanceTo(pPos) < 2.8) {
+          nearCustomer = cust;
+        }
+      });
+
+      if (nearCustomer) {
+        if (STATE.inventory.preparedTea > 0) {
+          STATE.inventory.preparedTea--;
+          nearCustomer.serveTea();
+          updateHUD();
+        } else {
+          showToast('You need a brewed bowl of tea first! [5] 🍵', '⚠️');
+        }
+        return;
+      }
+    }
+
+    function plantCrop(crop, type) {
+      crop.state = 'seeded';
+      crop.seedType = type;
+      crop.growth = 0;
+      crop.watered = false;
+      crop.plantGroup.clear();
+
+      crop.visualStage=-1;
+      setCropVisual(crop,0);
+      audio.playClack();
+      showToast(`Planted ${type.toUpperCase()} seeds in backyard! Now water it [1]`, '🌱');
+    }
+
+    function waterCrop(crop) {
+      if (crop.watered) return;
+      crop.watered = true;
+      crop.plotMesh.material = matSoilWet;
+      audio.playWater();
+      showToast('Backyard plot watered! Tea bush is flourishing.', '💧');
+    }
+
+    function harvestCrop(crop) {
+      crop.state = 'empty';
+      crop.plotMesh.material = matSoilDry;
+      crop.plantGroup.clear();
+      STATE.inventory.teaLeaves += 2;
+      STATE.zen += 2;
+      audio.playClack();
+      showToast('Harvested 2x Heirloom Green Tea Leaves! 🍃', '✨');
+      updateHUD();
+    }
+
+    function buildTeaPlant(stage=1,type='matcha') {
+      const g=new THREE.Group(),rand=gardenRandom(731+stage*37+(type==='sencha'?19:0));
+      const stemMat=new THREE.MeshStandardMaterial({color:0x637549,roughness:1});
+      const leafMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.86});
+      const leafGeo=new THREE.SphereGeometry(1,8,5),leaves=[],buds=[];
+      const branches=stage===0?2:stage===1?5:9;
+      for(let i=0;i<branches;i++){
+        const a=i*2.4,x=Math.cos(a)*.3,z=Math.sin(a)*.3,h=(stage===0?.18:stage===1?.45:.7)*(1+rand()*.25);
+        gardenBranch(g,[x,0,z],[x*1.5,h,z*1.5],.017,.007,stemMat);
+        for(let j=0;j<(stage===0?2:5);j++)for(const side of [-1,1]){
+          const y=h*(.25+j*.14),angle=a+side*1.15;
+          leaves.push({p:[x+Math.sin(angle)*.11,y,z+Math.cos(angle)*.11],s:[.065+stage*.02,.027,.15+stage*.035],r:[-.35,angle,side*.16],c:[0x6f9857,0x4f7b44,0x92af61,0x658e4d][(i+j)%4]});
+        }
+        if(stage===2){
+          for(let j=0;j<5;j++)buds.push({p:[x*1.5+Math.sin(j*1.256)*.065,h,z*1.5+Math.cos(j*1.256)*.065],s:[.06,.026,.045],r:[0,j*1.256,0],c:0xf6ecd0});
+          buds.push({p:[x*1.5,h+.018,z*1.5],s:[.027,.025,.027],c:0xd8b763});
+        }
+      }
+      gardenInstances(g,leafGeo,leafMat,leaves);
+      if(buds.length)gardenInstances(g,leafGeo,leafMat,buds);
+      batchGardenStatics(g);
+      normalizeModelColors(g);
+      return g;
+    }
+    function setCropVisual(crop,stage){
+      if(crop.visualStage===stage)return;
+      crop.visualStage=stage;crop.plantGroup.clear();
+      const bush=buildTeaPlant(stage,crop.seedType);crop.plantGroup.add(bush);
+    }
+    // Growth stages swap detailed leaf clusters once, retaining the original harvest economy.
+    setInterval(() => {
+      CROPS.forEach(crop=>{
+        if(crop.state==='seeded' && crop.watered){
+          crop.growth=Math.min(100,crop.growth+7);
+          if(crop.growth>=100){crop.state='ripe';setCropVisual(crop,2);}
+          else if(crop.growth>30)setCropVisual(crop,1);
+        }
+      });
+    },1500);
+
+    /* ==========================================================================
+       17. KATA MEDITATION
+       ========================================================================== */
+    function performKata() {
+      if (STATE.kataPlaying) return;
+      STATE.kataPlaying = true;
+      audio.playKatana();
+
+      PLAYER.katana.rotation.set(1.5, 0.4, 0);
+      showToast('Samurai Zen Kata: Tranquility across the estate (+5 Zen)', '⚔️');
+      STATE.zen += 5;
+      updateHUD();
+
+      for (let i = 0; i < 24; i++) {
+        const pIdx = Math.floor(Math.random() * PETAL_COUNT);
+        petalPositions[pIdx * 3] = playerGroup.position.x + (Math.random() - 0.5) * 3;
+        petalPositions[pIdx * 3 + 1] = 1.8 + Math.random();
+        petalPositions[pIdx * 3 + 2] = playerGroup.position.z + (Math.random() - 0.5) * 3;
+      }
+
+      setTimeout(() => {
+        PLAYER.katana.rotation.set(0.3, 0.2, -0.3);
+        STATE.kataPlaying = false;
+      }, 1600);
+    }
+
+    /* ==========================================================================
+       18. TEA BREWING MODAL & SHOP
+       ========================================================================== */
+    function openBrewModal() {
+      document.getElementById('modal-brew').style.display = 'flex';
+      STATE.frothLevel = 0;
+      updateWhiskBar();
+    }
+    function closeBrewModal() {
+      document.getElementById('modal-brew').style.display = 'none';
+    }
+
+    document.getElementById('close-brew-modal').onclick = closeBrewModal;
+    document.getElementById('btn-cancel-brew').onclick = closeBrewModal;
+
+    document.querySelectorAll('.tea-card').forEach(card => {
+      card.onclick = () => {
+        document.querySelectorAll('.tea-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        STATE.currentTeaType = card.dataset.tea;
+      };
+    });
+
+    document.getElementById('btn-whisk-action').onclick = () => {
+      STATE.frothLevel = Math.min(100, STATE.frothLevel + 16);
+      audio.playWater();
+      updateWhiskBar();
+    };
+
+    function updateWhiskBar() {
+      const fill = document.getElementById('whisk-fill');
+      const status = document.getElementById('whisk-status');
+      fill.style.width = `${STATE.frothLevel}%`;
+      status.textContent = `Froth: ${STATE.frothLevel}%`;
+    }
+
+    setInterval(() => {
+      if (document.getElementById('modal-brew').style.display === 'flex') {
+        if (STATE.frothLevel > 0) {
+          STATE.frothLevel = Math.max(0, STATE.frothLevel - 2);
+          updateWhiskBar();
+        }
+      }
+    }, 300);
+
+    document.getElementById('btn-finish-brew').onclick = () => {
+      if (STATE.inventory.teaLeaves < 1) {
+        showToast('Need 1x harvested tea leaf from the backyard!', '⚠️');
+        return;
+      }
+      if (STATE.frothLevel < 40) {
+        showToast('Whisk a bit more for a rich emerald foam!', '🍵');
+        return;
+      }
+      STATE.inventory.teaLeaves--;
+      STATE.inventory.preparedTea++;
+      STATE.zen += 4;
+      updateHUD();
+      closeBrewModal();
+      audio.playClack();
+      showToast(`Brewed a bowl of ${STATE.currentTeaType.toUpperCase()}! 🍵`, '✨');
+    };
+
+    // Merchant Modal
+    function openShopModal() {
+      const container = document.getElementById('shop-items-container');
+      container.innerHTML = '';
+
+      const seedItems = [
+        { name: 'Matcha Seeds x3', cost: 15, icon: '🌱', type: 'matchaSeeds', amt: 3 },
+        { name: 'Sencha Seeds x3', cost: 12, icon: '🌿', type: 'senchaSeeds', amt: 3 }
+      ];
+
+      seedItems.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'background: rgba(28,36,31,0.8); border: 1px solid rgba(212,175,55,0.25); border-radius: 8px; padding: 10px 14px; display:flex; justify-content:space-between; align-items:center;';
+        div.innerHTML = `
+          <div><strong>${item.icon} ${item.name}</strong><br><span style="color:#f5c542; font-size:12px;">🪙 ${item.cost} Mon</span></div>
+          <button class="btn-hud" style="font-size:12px; padding:6px 12px;">Purchase</button>
+        `;
+        div.querySelector('button').onclick = () => {
+          if (STATE.mon >= item.cost) {
+            STATE.mon -= item.cost;
+            STATE.inventory[item.type] += item.amt;
+            audio.playCoin();
+            updateHUD();
+            showToast(`Purchased ${item.name}!`, '🛍️');
+          } else {
+            showToast('Not enough Mon!', '⚠️');
+          }
+        };
+        container.appendChild(div);
+      });
+
+      Object.keys(DECOR_CATALOG).forEach(key => {
+        const decor = DECOR_CATALOG[key];
+        const div = document.createElement('div');
+        div.style.cssText = 'background: rgba(28,36,31,0.8); border: 1px solid rgba(212,175,55,0.25); border-radius: 8px; padding: 10px 14px; display:flex; justify-content:space-between; align-items:center;';
+        div.innerHTML = `
+          <div><strong>${decor.icon} ${decor.name}</strong><br><span style="font-size:11px; color:#9db1a2;">${decor.desc}</span><br><span style="color:#f5c542; font-size:12px;">🪙 ${decor.cost} Mon</span></div>
+          <button class="btn-hud" style="font-size:12px; padding:6px 12px;">Purchase</button>
+        `;
+        div.querySelector('button').onclick = () => {
+          if (STATE.mon >= decor.cost) {
+            STATE.mon -= decor.cost;
+            STATE.inventory.decorations[key] = (STATE.inventory.decorations[key] || 0) + 1;
+            audio.playCoin();
+            updateHUD();
+            renderDecorCatalog();
+            showToast(`Acquired ${decor.name}! Place via [B]`, '🎋');
+          } else {
+            showToast('Not enough Mon!', '⚠️');
+          }
+        };
+        container.appendChild(div);
+      });
+
+      document.getElementById('modal-shop').style.display = 'flex';
+    }
+    document.getElementById('close-shop-modal').onclick = () => {
+      document.getElementById('modal-shop').style.display = 'none';
+    };
+
+    /* ==========================================================================
+       19. HUD & BUTTON LISTENERS
+       ========================================================================== */
+    document.getElementById('btn-toggle-decor').onclick = toggleDecorMode;
+    document.getElementById('btn-close-decor').onclick = toggleDecorMode;
+    document.getElementById('btn-toggle-shop').onclick = openShopModal;
+    document.getElementById('btn-toggle-kata').onclick = performKata;
+    document.getElementById('btn-toggle-help').onclick = () => {
+      document.getElementById('modal-help').style.display = 'flex';
+    };
+    document.getElementById('close-help-modal').onclick = () => {
+      document.getElementById('modal-help').style.display = 'none';
+    };
+
+    document.getElementById('btn-toggle-audio').onclick = () => {
+      const active = audio.toggle();
+      document.getElementById('audio-icon').textContent = active ? '🔊' : '🔇';
+      showToast(active ? 'Audio Resumed' : 'Audio Muted', '🎵');
+    };
+
+    document.getElementById('btn-enter-game').onclick = () => {
+      audio.init();
+      document.getElementById('start-overlay').style.display = 'none';
+      showToast('Your kettle is warm. Welcome home.', '🌸');
+    };
+
+    document.querySelectorAll('.hotbar-slot').forEach(slot => {
+      slot.onclick = () => selectHotbar(parseInt(slot.dataset.slot));
+    });
+
+    function updateHUD() {
+      document.getElementById('hud-mon').textContent = `${STATE.mon} Mon`;
+      document.getElementById('hud-zen').textContent = `${STATE.zen} Zen`;
+      document.getElementById('count-matcha-seed').textContent = STATE.inventory.matchaSeeds;
+      document.getElementById('count-sencha-seed').textContent = STATE.inventory.senchaSeeds;
+      document.getElementById('count-leaves').textContent = STATE.inventory.teaLeaves;
+      document.getElementById('count-prepared-tea').textContent = STATE.inventory.preparedTea;
+    }
+
+    function showToast(msg, icon = '🍃') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+      c.appendChild(t);
+      setTimeout(() => t.classList.add('show'), 10);
+      setTimeout(() => {
+        t.classList.remove('show');
+        setTimeout(() => t.remove(), 400);
+      }, 3500);
+    }
+
+    /* ==========================================================================
+       20. ANIMATION & PHYSICS LOOP
+       ========================================================================== */
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.1);
+
+      // Day / Night Cycle
+      STATE.timeOfDay = (STATE.timeOfDay + STATE.timeSpeed * delta) % 1.0;
+      document.getElementById('hud-tod').textContent = STATE.timeOfDay < .25 || STATE.timeOfDay > .78 ? 'Moonlit garden' : STATE.timeOfDay < .38 ? 'First light' : STATE.timeOfDay < .65 ? 'Golden afternoon' : 'Evening glow';
+      updateCozyAtmosphere(delta,clock.elapsedTime);
+
+      // Player Movement
+      const moveDir = new THREE.Vector3();
+      if (hasEntered && (keys['w'] || keys['arrowup'])) moveDir.z -= 1;
+      if (hasEntered && (keys['s'] || keys['arrowdown'])) moveDir.z += 1;
+      if (hasEntered && (keys['a'] || keys['arrowleft'])) moveDir.x -= 1;
+      if (hasEntered && (keys['d'] || keys['arrowright'])) moveDir.x += 1;
+
+      PLAYER.isMoving = moveDir.lengthSq() > 0;
+
+      if (PLAYER.isMoving) {
+        moveDir.normalize();
+        const rotatedDir = moveDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), CAM.azimuth);
+        PLAYER.velocity.copy(rotatedDir).multiplyScalar(PLAYER.speed * delta);
+        PLAYER.pos.add(PLAYER.velocity);
+
+        const targetAngle = Math.atan2(rotatedDir.x, rotatedDir.z);
+        let diff = targetAngle - playerGroup.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        playerGroup.rotation.y += diff * 0.18;
+
+        PLAYER.walkCycle += delta * 11;
+        const swing = Math.sin(PLAYER.walkCycle) * 0.5;
+        PLAYER.legL.rotation.x = swing;
+        PLAYER.legR.rotation.x = -swing;
+        PLAYER.armL.rotation.x = -swing * 0.8;
+        PLAYER.armR.rotation.x = swing * 0.8;
+        playerGroup.position.y = Math.abs(Math.sin(PLAYER.walkCycle * 2)) * 0.08;
+      } else {
+        PLAYER.legL.rotation.x *= 0.85;
+        PLAYER.legR.rotation.x *= 0.85;
+        PLAYER.armL.rotation.x *= 0.85;
+        PLAYER.armR.rotation.x *= 0.85;
+        playerGroup.position.y = 0;
+      }
+
+      let floorHeight=0;
+      if(Math.abs(PLAYER.pos.x)<5.1 && PLAYER.pos.z>6.4 && PLAYER.pos.z<14.6) floorHeight=.63;
+      else if(Math.abs(PLAYER.pos.x)<6.6 && PLAYER.pos.z>-7.1 && PLAYER.pos.z<3.1) floorHeight=.74;
+      playerGroup.position.y += floorHeight;
+
+      // Compound Boundary Clamping
+      PLAYER.pos.x = Math.max(-19, Math.min(19, PLAYER.pos.x));
+      PLAYER.pos.z = Math.max(-21, Math.min(25, PLAYER.pos.z));
+
+      // Camera Follow
+      CAM.azimuth += (CAM.targetAzimuth - CAM.azimuth) * 0.1;
+      CAM.elevation += (CAM.targetElevation - CAM.elevation) * 0.1;
+
+      farmCameraLift+=( (PLAYER.pos.z < -9 ? .30 : 0)-farmCameraLift )*(1-Math.exp(-delta*3));
+      const viewElevation=Math.min(1.2,CAM.elevation+farmCameraLift);
+      const camX = PLAYER.pos.x + Math.sin(CAM.azimuth) * Math.cos(viewElevation) * CAM.distance;
+      const camZ = PLAYER.pos.z + Math.cos(CAM.azimuth) * Math.cos(viewElevation) * CAM.distance;
+      const camY = PLAYER.pos.y + Math.sin(viewElevation) * CAM.distance + 1.2;
+
+      if(scenicView || !hasEntered){
+        const a=!hasEntered?.46+Math.sin(clock.elapsedTime*.025)*.035:CAM.azimuth;
+        camera.position.set(Math.sin(a)*47,34,3+Math.cos(a)*47);
+        camera.lookAt(0,1.2,2);
+      }else{
+        camera.position.set(camX, camY, camZ);
+        camera.lookAt(PLAYER.pos.x, PLAYER.pos.y + 1.6, PLAYER.pos.z);
+      }
+
+      // Swimming Koi Fish
+      KOI_FISH.forEach(koi => {
+        koi.angle += koi.speed * delta * 20;
+        koi.group.position.x = -13 + Math.cos(koi.angle) * koi.radius;
+        koi.group.position.z = 17 + Math.sin(koi.angle) * koi.radius;
+        koi.group.rotation.y = -koi.angle - Math.PI / 2;
+      });
+
+      // Falling Sakura Petals
+      const positions = petalGeo.attributes.position.array;
+      for (let i = 0; i < PETAL_COUNT; i++) {
+        const vel = petalVelocities[i];
+        positions[i * 3 + 1] += vel.y * delta * 35;
+        positions[i * 3] += (Math.sin(clock.elapsedTime + i) * 0.01 + vel.x) * delta * 35;
+        positions[i * 3 + 2] += vel.z * delta * 35;
+
+        if (positions[i * 3 + 1] <= 0.05) {
+          positions[i * 3 + 1] = 14 + Math.random() * 4;
+          positions[i * 3] = PLAYER.pos.x + (Math.random() - 0.5) * 50;
+          positions[i * 3 + 2] = PLAYER.pos.z + (Math.random() - 0.5) * 50;
+        }
+      }
+      petalGeo.attributes.position.needsUpdate = true;
+
+      // Update Systems
+      CUSTOMERS.forEach(cust => cust.update(delta));
+      checkInteractions();
+      updateDecorGhost();
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Hand-built timber, ceramic tilework and tea-room objects. Static details are
+    // merged by material so the hundreds of small modeled parts remain inexpensive.
+    (() => {
+      const roofGroups = [];
+      const palette = {
+        cedar: new THREE.MeshStandardMaterial({color: 0x79533a, roughness: .88}),
+        cedarLight: new THREE.MeshStandardMaterial({color: 0xa97950, roughness: .88}),
+        endgrain: new THREE.MeshStandardMaterial({color: 0xc39365, roughness: .94}),
+        dark: new THREE.MeshStandardMaterial({color: 0x493c32, roughness: .88}),
+        tile: new THREE.MeshStandardMaterial({color: 0x405d62, roughness: .73}),
+        tileLight: new THREE.MeshStandardMaterial({color: 0x638080, roughness: .78}),
+        tileDark: new THREE.MeshStandardMaterial({color: 0x30494e, roughness: .78}),
+        stone: new THREE.MeshStandardMaterial({color: 0xa49f88, roughness: 1}),
+        stoneShade: new THREE.MeshStandardMaterial({color: 0x7e8677, roughness: 1}),
+        brass: new THREE.MeshStandardMaterial({color: 0xb49a5f, roughness: .52, metalness: .4}),
+        cream: new THREE.MeshStandardMaterial({color: 0xe9d5ae, roughness: .88}),
+        celadon: new THREE.MeshStandardMaterial({color: 0x8fab92, roughness: .3}),
+        clay: new THREE.MeshStandardMaterial({color: 0xb67655, roughness: .72}),
+        tea: new THREE.MeshStandardMaterial({color: 0x748549, roughness: .23}),
+        indigo: new THREE.MeshStandardMaterial({color: 0x526c75, roughness: 1}),
+      };
+      function batch(parent) {
+        const buckets = new Map();
+        const transform = new THREE.Object3D();
+        return {
+          add(g, material, x=0, y=0, z=0, rx=0, ry=0, rz=0) {
+            transform.position.set(x,y,z); transform.rotation.set(rx,ry,rz); transform.scale.set(1,1,1); transform.updateMatrix();
+            const flat = g.index ? g.toNonIndexed() : g;
+            flat.applyMatrix4(transform.matrix);
+            if (!buckets.has(material)) buckets.set(material, []);
+            buckets.get(material).push(flat);
+            if (flat !== g) g.dispose();
+          },
+          finish() {
+            for (const [material, geos] of buckets) {
+              let length=0;
+              geos.forEach(g => length += g.attributes.position.count);
+              const positions = new Float32Array(length*3), normals = new Float32Array(length*3), uvs = new Float32Array(length*2);
+              let offset=0;
+              for (const g of geos) {
+                const count=g.attributes.position.count;
+                positions.set(g.attributes.position.array, offset*3);
+                if(g.attributes.normal) normals.set(g.attributes.normal.array, offset*3);
+                if(g.attributes.uv) uvs.set(g.attributes.uv.array, offset*2);
+                offset+=count; g.dispose();
+              }
+              const geometry=new THREE.BufferGeometry();
+              geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+              geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));
+              geometry.setAttribute('uv',new THREE.BufferAttribute(uvs,2));
+              geometry.computeBoundingSphere();
+              const mesh=new THREE.Mesh(geometry,material); mesh.castShadow=true; mesh.receiveShadow=true; parent.add(mesh);
+            }
+          }
+        };
+      }
+      function box(b, material, x,y,z,w,h,d, rz=0) { b.add(new THREE.BoxGeometry(w,h,d),material,x,y,z,0,0,rz); }
+      function beam(b, material, a, c, width=.1, depth=width) {
+        const start=new THREE.Vector3(...a), end=new THREE.Vector3(...c), dir=end.clone().sub(start);
+        const g=new THREE.BoxGeometry(width,dir.length(),depth);
+        g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize())));
+        const mid=start.add(end).multiplyScalar(.5); b.add(g,material,mid.x,mid.y,mid.z);
+      }
+      function pipe(b, material, points, radius, segments=28) {
+        const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+        b.add(new THREE.TubeGeometry(curve,segments,radius,6,false),material);
+      }
+      function roof(parent, halfW, halfD, ridgeY, drop) {
+        const group=new THREE.Group(); group.name='Handcrafted kawara roof'; parent.add(group); roofGroups.push(group);
+        const b=batch(group);
+        const height=t=>ridgeY-drop*t+.47*Math.pow(t,5);
+        const steps=22;
+        for (const side of [-1,1]) {
+          // A dense curved skin under the raised tile ribs.
+          const positions=[], uvs=[], indices=[];
+          for(let j=0;j<=steps;j++) {
+            const t=j/steps;
+            for(let k=0;k<=1;k++) {
+              positions.push((k*2-1)*halfW,height(t),side*t*halfD); uvs.push(k,t);
+            }
+          }
+          for(let j=0;j<steps;j++) { const i=j*2; if(side>0) indices.push(i,i+2,i+1,i+1,i+2,i+3); else indices.push(i,i+1,i+2,i+1,i+3,i+2); }
+          const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();b.add(g,palette.tile);
+          // Individual barrel ridges catch the afternoon light along every tile.
+          const columns=Math.round(halfW*2/.34);
+          for(let i=0;i<=columns;i++) {
+            const x=-halfW+i*(halfW*2/columns), points=[];
+            for(let j=0;j<=12;j++) {const t=j/12;points.push([x,height(t)+.05,side*t*halfD]);}
+            pipe(b,i%4===0?palette.tileLight:palette.tile,points,.052,24);
+            const y=height(1)+.045;
+            b.add(new THREE.CylinderGeometry(.094,.094,.072,10),palette.tileLight,x,y,side*(halfD+.025),Math.PI/2);
+            b.add(new THREE.CylinderGeometry(.041,.041,.078,8),palette.tileDark,x,y,side*(halfD+.03),Math.PI/2);
+          }
+          // Overlapping tile courses, slim enough to read as ceramic edges.
+          for(let j=1;j<=12;j++) {
+            const t=j/12;
+            b.add(new THREE.CylinderGeometry(.023,.023,halfW*2,6),palette.tileDark,0,height(t)+.023,side*t*halfD,0,0,Math.PI/2);
+          }
+          box(b,palette.dark,0,height(1)-.12,side*halfD,halfW*2+.12,.19,.14);
+          box(b,palette.cedarLight,0,height(1)-.21,side*(halfD-.09),halfW*2,.065,.22);
+          // Exposed rafters, with clean end-grain on each cut timber.
+          for(let x=-halfW+.22;x<halfW;x+=.48) {
+            const points=[];
+            for(let j=0;j<=8;j++) {const t=j/8;points.push([x,height(t)-.16,side*t*halfD]);}
+            pipe(b,palette.cedar,points,.062,14);
+            box(b,palette.endgrain,x,height(1)-.155,side*(halfD+.026),.095,.095,.03);
+          }
+        }
+        // Raised ridge with stacked ceramic cap courses.
+        box(b,palette.tileDark,0,ridgeY+.045,0,halfW*2+.22,.2,.3);
+        for(let x=-halfW;x<=halfW+.01;x+=.28) {
+          b.add(new THREE.CylinderGeometry(.18,.18,.275,10),palette.tileLight,x,ridgeY+.15,0,0,0,Math.PI/2);
+        }
+        // Open gable trusses, swept verge boards and carved ridge ornaments.
+        for(const side of [-1,1]) {
+          const x=side*(halfW+.025);
+          for(const face of [-1,1]) {
+            const points=[];for(let i=0;i<=12;i++){const t=i/12;points.push([x,height(t)-.035,face*t*halfD]);}
+            pipe(b,palette.dark,points,.135,24);
+            pipe(b,palette.endgrain,points.map(p=>[p[0]+side*.095,p[1]-.018,p[2]]),.038,24);
+          }
+          const baseY=height(1)-.16;
+          beam(b,palette.cedar,[x,baseY,-halfD+.4],[x,baseY,halfD-.4],.18);
+          beam(b,palette.cedar,[x,baseY,0],[x,ridgeY-.1,0],.18);
+          for(const face of [-1,1]) beam(b,palette.cedar,[x,baseY,face*halfD*.69],[x,ridgeY-.55,0],.13);
+          b.add(new THREE.TorusGeometry(.23,.066,8,24),palette.tileDark,x+side*.04,ridgeY+.2,0,0,Math.PI/2);
+          b.add(new THREE.CylinderGeometry(.105,.105,.12,12),palette.tileLight,x+side*.045,ridgeY+.2,0,0,0,Math.PI/2);
+          for(const face of [-1,1]) pipe(b,palette.tileDark,[[x, ridgeY+.16,0],[x+side*.13,ridgeY+.38,face*.12],[x+side*.12,ridgeY+.47,face*.28]],.055,10);
+        }
+        b.finish();
+        return group;
+      }
+      // Remove the original circular placeholder roofs and their floating caps.
+      [thRoofMain,thEaveRim,thRidge,shRoofMain,shRidge].forEach(o=>o.visible=false);
+      [teaHouse,samuraiHouse].forEach(h=>h.children.forEach(o=>{
+        if(o.isMesh && o.geometry.type==='CylinderGeometry' && o.position.y>5.9) o.visible=false;
+      }));
+      roof(teaHouse,6.05,4.8,6.25,2.25);
+      roof(samuraiHouse,7.55,5.65,7.0,2.75);
+      function structure(parent, w, d, floorY, topY, pillars) {
+        const b=batch(parent);
+        // Fine porch planks alternate their warm cedar tones.
+        for(let x=-w/2+.15, n=0;x<w/2;x+=.3,n++) {
+          for(const side of [-1,1]) box(b,n%3===0?palette.cedar:palette.cedarLight,x,floorY+.025,side*(d/2-.44),.285,.045,.84);
+        }
+        for(const side of [-1,1]) {
+          for(let z=-d/2+.92,n=0;z<d/2-.7;z+=.3,n++) box(b,n%3===0?palette.cedar:palette.cedarLight,side*(w/2-.39),floorY+.025,z,.74,.045,.285);
+          box(b,palette.dark,0,floorY-.16,side*(d/2+.012),w,.09,.07);
+          box(b,palette.cedar,0,topY,side*(d/2-.5),w-.35,.23,.23);
+          box(b,palette.endgrain,0,topY+.16,side*(d/2-.5),w-.3,.07,.27);
+          // Three shallow broad steps leave the entrance completely open.
+          for(let i=0;i<3;i++) {
+            const level=floorY*(3-i)/4, z=side*(d/2+.22+i*.32);
+            box(b,palette.cedar,0,level/2,z,3.2+i*.22,level,.34);
+            box(b,palette.cedarLight,0,level+.023,z,3.23+i*.22,.045,.32);
+          }
+        }
+        for(const side of [-1,1]) {
+          box(b,palette.cedar,side*(w/2-.5),topY,0,.23,.23,d-.4);
+          // Continuous side-wall lattice and the low weatherboard sill.
+          box(b,palette.dark,side*(w/2-.49),floorY+.25,0,.12,.12,d-.8);
+          for(let z=-d/2+.55;z<=d/2-.45;z+=.48) box(b,palette.cedar,side*(w/2-.485),floorY+1.65,z,.12,2.65,.04);
+          for(let y=floorY+.75;y<topY-.2;y+=.47) box(b,palette.cedar,side*(w/2-.485),y,0,.13,.045,d-.95);
+        }
+        for(const [x,z] of pillars) {
+          box(b,palette.cedar,x,(floorY+topY)/2,z,.235,topY-floorY,.235);
+          box(b,palette.dark,x,floorY+.23,z,.27,.08,.27);
+          box(b,palette.dark,x,topY-.15,z,.34,.11,.34);
+          box(b,palette.cedarLight,x,topY-.27,z,.43,.1,.35);
+          box(b,palette.cedar,x,topY-.35,z,.3,.11,.28);
+          // Slightly irregular stone pads ground each post.
+          b.add(new THREE.CylinderGeometry(.28,.34,.18,7),palette.stone,x,floorY-.12,z,0,(x+z)*.4);
+          for(const s of [-1,1]) beam(b,palette.cedar,[x,topY-.54,z],[x+s*.44,topY-.07,z],.09);
+        }
+        // Foundations are masonry blocks rather than a floating wood slab.
+        for(const side of [-1,1]) for(let x=-w/2+.45,n=0;x<w/2;x+=.88,n++) box(b,n%3?palette.stone:palette.stoneShade,x,.13,side*(d/2-.1),.83,.24,.33);
+        // Tatami binding emphasizes the scale of the softly woven interior floor.
+        for(let x=-w/2+1;x<w/2-.8;x+=1.35) box(b,palette.indigo,x,floorY+.053,0,.035,.012,d-2);
+        for(let z=-d/2+1;z<d/2-.8;z+=2.1) box(b,palette.indigo,0,floorY+.054,z,w-2,.012,.035);
+        b.finish();
+      }
+      structure(teaHouse,10.2,8.2,.60,3.85,thPillars);
+      structure(samuraiHouse,13.2,10.2,.69,4.13,shPillars);
+      // Shoji muntins belong to each sliding door so they travel with gameplay.
+      [[doorFrontL,2.1,2.8],[doorFrontR,2.1,2.8],[doorBackL,2.1,2.8],[doorBackR,2.1,2.8],
+       [shFrontL,2.4,3],[shFrontR,2.4,3],[shBackL,2.4,3],[shBackR,2.4,3]].forEach(([door,w,h])=>{
+        const b=batch(door);
+        for(let x=-w/2+.32;x<w/2-.1;x+=.32) box(b,palette.cedar,x,(h+.55)/2,.033,.023,h-.63,.028);
+        for(let y=.81;y<h-.12;y+=.34) box(b,palette.cedar,0,y,.035,w-.15,.025,.029);
+        for(let x=-w/2+.2;x<w/2;x+=.26) box(b,palette.cedar,x,.28,.031,.018,.46,.025);
+        b.finish();
+      });
+      // Soft woven curtain hems and a cream plum-blossom house crest.
+      teaHouse.children.forEach(o=>{if(o.material===norenMat)o.visible=false;});
+      const clothCanvas=document.createElement('canvas');clothCanvas.width=256;clothCanvas.height=256;
+      const cc=clothCanvas.getContext('2d');cc.fillStyle='#496977';cc.fillRect(0,0,256,256);
+      cc.globalAlpha=.12;cc.fillStyle='#d9e6de';for(let y=0;y<256;y+=3)cc.fillRect(0,y,256,1);cc.globalAlpha=1;
+      cc.strokeStyle='#d1cbb2';cc.lineWidth=2;cc.strokeRect(10,9,236,238);
+      cc.fillStyle='#f2e4c8';for(let i=0;i<5;i++){const a=i*Math.PI*2/5-Math.PI/2;cc.beginPath();cc.arc(128+Math.cos(a)*29,125+Math.sin(a)*29,21,0,Math.PI*2);cc.fill();}cc.fillStyle='#496977';cc.beginPath();cc.arc(128,125,10,0,Math.PI*2);cc.fill();
+      const clothTexture=new THREE.CanvasTexture(clothCanvas);clothTexture.encoding=THREE.sRGBEncoding;
+      const clothMaterial=new THREE.MeshStandardMaterial({map:clothTexture,roughness:1,side:THREE.DoubleSide});
+      for(let i=-2;i<=2;i++) {
+        const g=new THREE.PlaneGeometry(1.29,.85,14,8),a=g.attributes.position;
+        for(let j=0;j<a.count;j++){const x=a.getX(j),y=a.getY(j);a.setZ(j,Math.sin(x*12+i)*.043*(.6-y));a.setY(j,y+Math.sin(x*7+i)*.017*(.45-y));}g.computeVertexNormals();
+        const panel=new THREE.Mesh(g,clothMaterial);panel.position.set(i*1.5,3.1,3.73);panel.castShadow=true;teaHouse.add(panel);
+      }
+      // Lantern ribs have a delicate silhouette against the glowing washi paper.
+      chochinBody.material=new THREE.MeshStandardMaterial({color:0xe5a26c,roughness:.82,emissive:0xb55328,emissiveIntensity:.45});
+      const lb=batch(chochinGroup);
+      for(let y=-.27;y<=.28;y+=.06){const r=Math.sqrt(.32*.32-y*y)+.003;lb.add(new THREE.TorusGeometry(r,.008,5,32),palette.clay,0,y,0,Math.PI/2);}
+      for(let i=0;i<12;i++){const a=i*Math.PI/6;const points=[];for(let j=0;j<=16;j++){const q=.1+j/16*(Math.PI-.2);points.push([Math.sin(q)*.321*Math.cos(a),Math.cos(q)*.32,Math.sin(q)*.321*Math.sin(a)]);}pipe(lb,palette.clay,points,.006,16);}
+      box(lb,palette.dark,0,.45,0,.018,.2,.018);
+      lb.add(new THREE.SphereGeometry(.04,10,8),palette.brass,0,-.4,0);
+      lb.finish();
+      function sign(parent,text,subtitle,x,y,z,w=1.6,h=.7) {
+        const c=document.createElement('canvas');c.width=512;c.height=256;const ctx=c.getContext('2d');
+        ctx.fillStyle='#b68a59';ctx.fillRect(0,0,512,256);ctx.fillStyle='#e5c79a';ctx.fillRect(10,10,492,236);
+        ctx.strokeStyle='#86623f';ctx.lineWidth=3;ctx.strokeRect(20,20,472,216);ctx.fillStyle='#485044';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 80px Georgia, serif';ctx.fillText(text,256,112);ctx.font='25px Georgia, serif';ctx.fillText(subtitle,256,190);
+        const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;
+        const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,.1),palette.cedar);m.position.set(x,y,z);parent.add(m);
+        const face=new THREE.Mesh(new THREE.PlaneGeometry(w*.94,h*.88),new THREE.MeshStandardMaterial({map:tex,roughness:.9}));face.position.set(x,y,z+.057);parent.add(face);
+        const b=batch(parent);for(const dx of [-w*.36,w*.36])box(b,palette.dark,x+dx,y+h*.7,z,.014,h*.46,.014);b.finish();
+      }
+      sign(teaHouse,'茶 房','TEA & QUIET MOMENTS',-4,3.04,4.25,1.5,.74);
+      sign(samuraiHouse,'侍 の 家','A PLACE TO RETURN',4.88,3.44,4.66,1.4,.64);
+      // Lathed profiles retain genuinely open ceramic bowls and rolled rims.
+      function vessel(b,material,x,y,z,scale=1,kind='bowl') {
+        const profiles={bowl:[[0,.02],[.1,.02],[.11,.045],[.15,.11],[.19,.23],[.187,.25],[.163,.25],[.143,.12],[.08,.062],[0,.062]],
+          jar:[[0,0],[.18,0],[.25,.07],[.29,.3],[.25,.49],[.14,.58],[.14,.65],[.12,.65],[.12,.57],[.2,.44],[.23,.26],[.16,.06],[0,.06]],
+          pot:[[0,0],[.18,0],[.29,.08],[.33,.26],[.26,.39],[.16,.42],[0,.42]]};
+        const p=profiles[kind].map(([r,h])=>new THREE.Vector2(r*scale,h*scale));
+        b.add(new THREE.LatheGeometry(p,24),material,x,y,z);
+        if(kind==='bowl')b.add(new THREE.CircleGeometry(.139*scale,24),palette.tea,x,y+.12*scale,z,-Math.PI/2);
+      }
+      bowl1.visible=false;bowl2.visible=false;
+      const fb=batch(teaHouse);
+      box(fb,palette.cedarLight,2.4,1.375,-1.8,3.7,.07,1.25);
+      box(fb,palette.dark,1.86,1.432,-1.67,1.5,.046,.67);
+      box(fb,palette.cedarLight,1.86,1.459,-1.67,1.42,.012,.59);
+      vessel(fb,palette.celadon,1.48,1.475,-1.67,.75);
+      vessel(fb,palette.cream,1.93,1.475,-1.67,.75);
+      vessel(fb,palette.clay,2.48,1.47,-1.85,.76,'pot');
+      fb.add(new THREE.CylinderGeometry(.14,.2,.052,24),palette.clay,2.48,1.81,-1.85);
+      fb.add(new THREE.SphereGeometry(.045,12,8),palette.dark,2.48,1.86,-1.85);
+      pipe(fb,palette.clay,[[2.66,1.64,-1.85],[2.84,1.69,-1.85],[2.88,1.79,-1.85]],.057,12);
+      fb.add(new THREE.TorusGeometry(.145,.026,8,20,Math.PI*1.6),palette.clay,2.27,1.65,-1.85,0,0,-Math.PI*.8);
+      vessel(fb,palette.celadon,3.74,1.43,-1.86,.9,'jar');
+      vessel(fb,palette.clay,3.25,1.43,-1.86,.62,'jar');
+      for(let i=0;i<5;i++) {
+        fb.add(new THREE.CylinderGeometry(.08,.08,.04,12),palette.cream,1.42+i*.12,1.50,-1.91);
+      }
+      // A small quiet bench and tea tray on the right-hand veranda.
+      box(fb,palette.cedarLight,4.73,1.04,1.4,.56,.12,1.7);
+      for(const z of [.82,1.98])box(fb,palette.dark,4.73,.82,z,.38,.38,.15);
+      box(fb,palette.indigo,4.73,1.13,1.12,.48,.09,.72);
+      vessel(fb,palette.cream,4.73,1.12,1.89,.55);
+      // Kettle feet and spout give the iron hearth a readable silhouette.
+      pipe(fb,palette.dark,[[.22,1.03,0],[.45,1.10,0],[.49,1.21,0]],.07,12);
+      for(const x of [-.24,.24])box(fb,palette.dark,x,.82,0,.08,.17,.3);
+      fb.finish();
+      const sb=batch(samuraiHouse);
+      // Low writing table, folded bedding, and a hanging ink scroll.
+      box(sb,palette.cedarLight,3.9,1.14,-3.45,1.6,.13,.8);
+      for(const x of [3.28,4.52])for(const z of [-3.72,-3.18])box(sb,palette.dark,x,.95,z,.11,.35,.11);
+      box(sb,palette.cream,3.85,1.215,-3.45,.62,.013,.46);
+      box(sb,palette.dark,4.34,1.24,-3.45,.22,.06,.14);
+      beam(sb,palette.dark,[3.64,1.23,-3.6],[4.05,1.23,-3.32],.018);
+      for(let i=0;i<3;i++)box(sb,i%2?palette.cream:palette.indigo,4.72,.81+i*.11,-2.06,1.15,.105,1.6);
+      vessel(sb,palette.clay,4.87,.74,-4.03,.93,'jar');
+      sb.finish();
+      const scrollCanvas=document.createElement('canvas');scrollCanvas.width=256;scrollCanvas.height=512;
+      const sc=scrollCanvas.getContext('2d');sc.fillStyle='#738a7b';sc.fillRect(0,0,256,512);sc.fillStyle='#e4dabd';sc.fillRect(32,52,192,378);sc.strokeStyle='#59685c';sc.lineWidth=4;
+      sc.beginPath();sc.moveTo(120,360);sc.bezierCurveTo(168,225,104,212,151,107);sc.stroke();
+      for(let i=0;i<9;i++){const y=134+i*25,x=138+Math.sin(i)*13;sc.beginPath();sc.ellipse(x+(i%2?20:-20),y,24,6,i%2?-.6:.6,0,Math.PI*2);sc.fillStyle='#657664';sc.fill();}
+      sc.fillStyle='#ad604a';sc.fillRect(171,371,20,20);
+      const scrollTex=new THREE.CanvasTexture(scrollCanvas);scrollTex.encoding=THREE.sRGBEncoding;
+      const scroll=new THREE.Mesh(new THREE.PlaneGeometry(.86,1.75),new THREE.MeshStandardMaterial({map:scrollTex,roughness:1,side:THREE.DoubleSide}));scroll.position.set(4.06,2.6,-4.41);samuraiHouse.add(scroll);
+      const scrollBatch=batch(samuraiHouse);for(const y of [1.7,3.5])scrollBatch.add(new THREE.CylinderGeometry(.032,.032,1.03,10),palette.dark,4.06,y,-4.40,0,0,Math.PI/2);scrollBatch.finish();
+      window.cozyArchitecture={roofs:roofGroups};
+    })();
+
+    function normalizeModelColors(root) {
+      root.traverse(o=>{
+        if(!o.material)return;
+        const materials=Array.isArray(o.material)?o.material:[o.material];
+        materials.forEach(m=>{
+          if(m.userData.cozyColorManaged)return;
+          if(m.color)m.color.convertSRGBToLinear();
+          if(m.emissive)m.emissive.convertSRGBToLinear();
+          m.userData.cozyColorManaged=true;
+        });
+      });
+    }
+
+    function batchGardenStatics(root) {
+      root.updateMatrixWorld(true);
+      const inverse=new THREE.Matrix4().copy(root.matrixWorld).invert(), buckets=new Map(), originals=[];
+      root.traverse(o=>{
+        if(!o.isMesh || o.isInstancedMesh || !o.visible || Array.isArray(o.material) || o.material.transparent) return;
+        let p=o.parent;while(p&&p!==root){if(!p.visible)return;p=p.parent;}
+        const key=o.material.uuid+':'+o.castShadow+':'+o.receiveShadow;
+        if(!buckets.has(key))buckets.set(key,{material:o.material,cast:o.castShadow,receive:o.receiveShadow,geos:[]});
+        const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();
+        g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,o.matrixWorld));
+        buckets.get(key).geos.push(g);originals.push(o);
+      });
+      for(const b of buckets.values()){
+        const count=b.geos.reduce((n,g)=>n+g.attributes.position.count,0), pos=new Float32Array(count*3), norm=new Float32Array(count*3), uv=new Float32Array(count*2);let offset=0;
+        for(const g of b.geos){pos.set(g.attributes.position.array,offset*3);if(g.attributes.normal)norm.set(g.attributes.normal.array,offset*3);if(g.attributes.uv)uv.set(g.attributes.uv.array,offset*2);offset+=g.attributes.position.count;g.dispose();}
+        const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(norm,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.computeBoundingSphere();
+        const m=new THREE.Mesh(g,b.material);m.castShadow=b.cast;m.receiveShadow=b.receive;root.add(m);
+      }
+      originals.forEach(o=>o.parent.remove(o));
+    }
+    installCozyGarden();
+    batchGardenStatics(compoundFences);
+    batchGardenStatics(window.cozyGarden.group);
+    frontGarden.children.filter(c=>c.userData.sakura).forEach(batchGardenStatics);
+
+    // Warm, continuous lighting rather than abrupt day/night switches.
+    const skyFill=new THREE.HemisphereLight(0xf5efda,0x788b75,.65);scene.add(skyFill);
+    const daylightSky=new THREE.Color(0xd9d9bc),sunsetSky=new THREE.Color(0xe2b7a3),nightSky=new THREE.Color(0x283c4c);
+    const warmSun=new THREE.Color(0xffcc94),daySun=new THREE.Color(0xffefd5);
+    let scenicView=false,hasEntered=false,farmCameraLift=0;
+    const smoothstep=(a,b,x)=>{const t=THREE.MathUtils.clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+    function updateCozyAtmosphere(delta,t){
+      const phase=STATE.timeOfDay, altitude=Math.sin((phase-.25)*Math.PI*2), daylight=smoothstep(-.16,.25,altitude);
+      sunLight.position.set(Math.cos((phase-.25)*Math.PI*2)*32,Math.max(5,altitude*42),22);
+      sunLight.intensity=.12+daylight*1.35;sunLight.color.copy(warmSun).lerp(daySun,smoothstep(.15,.85,altitude));
+      ambientLight.intensity=.16+daylight*.22;skyFill.intensity=.22+daylight*.28;
+      scene.background.copy(nightSky).lerp(sunsetSky,daylight).lerp(daylightSky,daylight*smoothstep(.1,.8,altitude));
+      scene.fog.color.copy(scene.background);hearthLight.intensity=1.4+(.5-Math.sin(t*4)*.08)*(1-daylight);
+      window.cozyGarden.update(t);
+      const approach=Math.abs(PLAYER.pos.x)<3.2&&Math.abs(PLAYER.pos.z-14.1)<4.4&&hasEntered;
+      const slide=1-Math.exp(-delta*5);
+      doorFrontL.position.x+=((approach?-3.35:-2.5)-doorFrontL.position.x)*slide;
+      doorFrontR.position.x+=((approach?3.35:1.1)-doorFrontR.position.x)*slide;
+      if(window.cozyArchitecture) window.cozyArchitecture.roofs.forEach((roof,i)=>{
+        const inside=i===0?Math.abs(PLAYER.pos.x)<5.3&&PLAYER.pos.z>6.3&&PLAYER.pos.z<14.7:Math.abs(PLAYER.pos.x)<6.7&&PLAYER.pos.z>-7.2&&PLAYER.pos.z<3.2;
+        roof.visible=scenicView||!hasEntered||!inside;
+      });
+    }
+    function toggleScenicView(){
+      scenicView=!scenicView;
+      document.getElementById('btn-scenic').classList.toggle('active',scenicView);
+      showToast(scenicView?'A little moment to take it all in. [V] to return.':'Back to the garden.','🍃');
+    }
+    document.getElementById('btn-scenic').onclick=toggleScenicView;
+    window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='v'&&!e.repeat)toggleScenicView();});
+    window.addEventListener('blur',()=>{Object.keys(keys).forEach(k=>keys[k]=false);CAM.isMouseDown=false;});
+    document.getElementById('btn-enter-game').addEventListener('click',()=>{hasEntered=true;document.body.classList.add('playing');});
+
+    normalizeModelColors(scene);
+    updateHUD();
+    animate();
+  </script>
+</body>
+</html>
